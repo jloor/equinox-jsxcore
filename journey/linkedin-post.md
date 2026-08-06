@@ -1,6 +1,7 @@
 # LinkedIn post
 
-Primary draft below. A shorter variant follows. Neither is posted.
+Draft C is the current preference - leads with intent rather than findings.
+A and B are earlier, more technical framings. None are posted.
 
 Links: demo https://equinox-jsxcore.jonathanloor.com ·
 writeup https://equinox-jsxcore.jonathanloor.com/journey ·
@@ -8,7 +9,57 @@ repo https://github.com/jloor/equinox-jsxcore
 
 ---
 
-## Draft A — the one I'd post
+## Draft C — leads with the why (current preference)
+
+I wanted to find out what I could actually build in a stack I'm not an expert in.
+
+So I set myself a deliberately awkward challenge: take a well-known .NET reference
+application, swap out its entire view layer for a library released three weeks ago, and put
+it in production. Not a tutorial project. Someone else's real codebase, and a dependency
+with a few hundred downloads and no Stack Overflow answers to lean on.
+
+I'm not a .NET expert. That was the point.
+
+It's live: https://equinox-jsxcore.jonathanloor.com
+
+What I learned is not really about .NET.
+
+The single most valuable thing I did was refuse to start. I had a detailed plan, and before
+running any of it, I checked every claim it made against the actual repository. Ten were
+wrong. It named a folder that doesn't exist. It told me to do a database migration that had
+already been done. It required two things that couldn't both be true at once.
+
+Catching that needed no expertise at all. It needed reading the code before trusting a
+description of the code. I think that's the skill that actually transfers between stacks.
+
+The rest was ordinary difficulty, honestly reported. Some things got worse, not better. I
+spent hours convinced the library was broken before discovering my own one-character
+mistake. Several of my own tests passed when they should have failed — including one about
+thirty seconds after I'd finished writing about that exact problem.
+
+I wrote all of it down, corrections included, because the version where everything goes
+smoothly isn't useful to anyone.
+
+The part I didn't expect was how much I'd find worth giving back. Working carefully through
+two open-source projects surfaced four real issues — including a dependency update that
+doesn't fully patch what it claims to, and a bug that makes an app return errors on every
+request under a common configuration. All four are now filed upstream with reproductions,
+and I'd rather that be the outcome than a demo nobody looks at.
+
+The full writeup: https://equinox-jsxcore.jonathanloor.com/journey
+
+Sincere thanks to Eduardo Pires, whose Equinox Project is a genuinely excellent codebase to
+learn architecture from, and David Whitney, whose JsxCore is an ambitious piece of work. Both
+MIT. Neither of them asked for any of this.
+
+If you're on the fence about building something in a stack you don't know: the gap is
+smaller than it looks, and it's mostly filled by being willing to check things.
+
+#dotnet #softwareengineering #learninginpublic
+
+---
+
+## Draft A — technical framing (earlier version)
 
 I had a detailed plan to migrate a .NET reference app to a view engine released three weeks
 ago. Before running a single step, I had it verified against the actual repository.
