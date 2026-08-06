@@ -2,7 +2,11 @@
   "name": "equinox.ui.web",
   "version": "1.0.0",
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "marked": "^18.0.9",
+    "dayjs": "^1.11.21",
+    "highlight.js": "^11.11.1"
+  },
   "devDependencies": {
     "typescript": "^7",
     "esbuild": "^0.28.1"

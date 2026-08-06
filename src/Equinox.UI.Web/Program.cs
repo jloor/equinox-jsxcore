@@ -2,7 +2,9 @@ using Equinox.UI.Web.Configurations;
 using Equinox.Infra.CrossCutting.Identity.Configuration;
 using Equinox.UI.Web.ViewServices;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using JsxCore;
 using JsxCore.Hosting;
+using JsxCore.Mvc;
 using JsxCore.TypeScript;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +26,7 @@ builder.Services.AddSingleton<IActionContextAccessor, ActionContextAccessor>();
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<AntiforgeryTokens>();
 builder.Services.AddScoped<ValidationState>();
+builder.Services.AddSingleton<JourneyLibrary>();
 
 // Opts Customer/Index into RenderMode.ServerAndClient. That mode has no file directive - it
 // is a per-response decision, normally made in the controller, which this project may not
@@ -69,6 +72,7 @@ builder.AddJsxCore(options =>
         <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
         <link rel="stylesheet" href="/css/site.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/css/all.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" />
         """;
     options.Document.BodyContent = """
         <script src="/lib/jquery/dist/jquery.min.js"></script>
@@ -110,6 +114,20 @@ app.MapRazorPages();
 // OUTGOING container also served. CI reported a successful deploy while the site was
 // still showing the platform's "We're deploying your app!" placeholder. Liveness is not
 // the same as freshness, and only one of them is what a deploy step is claiming.
+// The project writeup, rendered from committed markdown by the `marked` npm package -
+// server-side, in an image with no Node and no npm. Routed here rather than through a
+// controller because this project's constraints forbid modifying Controllers/.
+app.MapGet("/journey", (JourneyLibrary journey) =>
+    Results.Extensions.Jsx("Journey/Index", journey.List()));
+
+app.MapGet("/journey/{slug}", (string slug, JourneyLibrary journey) =>
+{
+    var markdown = journey.Read(slug);
+    var title = journey.List().FirstOrDefault(c => c.Slug == slug)?.Title ?? "Not found";
+    return Results.Extensions.Jsx("Journey/Chapter", new { slug, title, markdown },
+        RenderMode.ServerAndClient);
+});
+
 app.MapGet("/version", () => Results.Text(
     Environment.GetEnvironmentVariable("BUILD_SHA") ?? "unknown",
     "text/plain"));

@@ -245,3 +245,6 @@ ModelManifest.xml
 *.db
 *.db-shm
 *.db-wal
+
+# JsxCore restores these from the registry during build (no npm required)
+node_modules/

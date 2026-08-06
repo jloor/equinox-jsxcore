@@ -67,4 +67,21 @@ ENV ASPNETCORE_ENVIRONMENT="Docker"
 ENV ASPNETCORE_URLS="http://*:8080"
 EXPOSE 8080
 
+# The project writeup, served at /journey and rendered from markdown by the `marked` npm
+# package at request time. Copied from the build context - the build stage only copies the
+# solution, src/ and tests/, so it has no journey/ of its own.
+# npm packages the views import at RUNTIME.
+#
+# The docs say publish copies these for you; it did not, and the failure is a 500 on any
+# page importing one. JsxCore does warn clearly at startup:
+#
+#   JsxCore: package.json declares marked, dayjs, highlight.js, which are not installed
+#   in /app. A view importing one will fail to render.
+#
+# Copied from the build stage, where `dotnet publish` restored them from the registry
+# without npm ever being installed.
+COPY --from=build /src/src/Equinox.UI.Web/node_modules ./node_modules
+
+COPY journey/chapters ./journey/chapters
+
 ENTRYPOINT ["dotnet", "Equinox.UI.Web.dll"]

@@ -115,6 +115,22 @@ else
     emit typecheck-fatal FAIL "JsxCoreTypeChecking is not 'error'; TS2339 would only warn"
 fi
 
+# npm packages, installed with no npm on the machine.
+#
+# JsxCore fetches these from the public registry itself during `dotnet build`. The claim is
+# only meaningful if real packages are actually declared and actually used, so this checks
+# the manifest rather than trusting that the build printed something.
+PKG_JSON="$WEB/package.json"
+missing_pkgs=""
+for pkg in marked dayjs highlight.js; do
+    grep -q "\"$pkg\"" "$PKG_JSON" 2>/dev/null || missing_pkgs="$missing_pkgs $pkg"
+done
+if [[ -z "$missing_pkgs" ]]; then
+    emit npm-packages PASS "marked, dayjs and highlight.js declared in package.json"
+else
+    emit npm-packages FAIL "missing from package.json:$missing_pkgs"
+fi
+
 # Every Razor view that is NOT deliberately retained should have a .tsx counterpart.
 for v in $(find "$VIEWS" -name '*.cshtml' 2>/dev/null | grep -vE "$RAZOR_ALLOWED"); do
     [[ -f "${v%.cshtml}.tsx" ]] || emit tsx-parity FAIL "no .tsx for ${v#$VIEWS/}"
@@ -212,6 +228,28 @@ anon="$(code "$BASE/customer-management/register-new")"
     || emit auth-enforced FAIL "anonymous create -> $anon (expected 302)"
 
 # ------------------------------------------------------------- authed CRUD flow
+
+# marked runs SERVER-SIDE, inside the embedded JavaScript engine, in an image with no Node.
+# Asserting on converted markup rather than a 200, because the page returns 200 even when
+# the markdown passes through unrendered.
+chapter="$(curl -s --max-time 40 "$BASE/journey/00-spec-review")"
+if [[ -z "$chapter" ]]; then
+    emit npm-server-render FAIL "could not fetch a journey chapter"
+elif [[ "$chapter" == *"<h2>"* && "$chapter" == *"<table>"* ]]; then
+    emit npm-server-render PASS "marked converted markdown to HTML during server rendering"
+else
+    emit npm-server-render FAIL "chapter served but markdown was not converted"
+fi
+
+# highlight.js cannot be server-rendered - Jint's parser rejects it with
+# "Script nesting exceeds maximum depth of 256 levels" - so it is dynamically imported in
+# the browser only. Its presence in the import map is what proves npm packages reach the
+# client with no bundler.
+if [[ "$chapter" == *"npm/0/highlight.js"* ]]; then
+    emit npm-browser-module PASS "highlight.js served to the browser as ES modules, no bundler"
+else
+    emit npm-browser-module FAIL "highlight.js absent from the import map"
+fi
 
 CJ="$(mktemp)"
 EMAIL="verify-$$@example.com"

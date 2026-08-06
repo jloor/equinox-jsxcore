@@ -1,6 +1,13 @@
 import { useState } from "preact/hooks";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import type Equinox from "@/generated/types.d.ts";
 import { formatDate } from "./CustomerForm.tsx";
+
+// dayjs is a real npm package, added with `dotnet npm add dayjs` on a machine with no npm.
+// It is imported through the SERVER render pass and also served to the browser as ES
+// modules straight from the import map - no bundler, no build step of our own.
+dayjs.extend(relativeTime);
 
 type Customer = Equinox.Application.ViewModels.CustomerViewModel;
 type HistoryEntry = Equinox.Application.EventSourcedNormalizers.CustomerHistoryData;
@@ -147,7 +154,7 @@ export function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
                 {entries.map((e, i) => (
                     <tr key={`${e.id}-${i}`}>
                         <td>{e.action}</td>
-                        <td>{e.timestamp}</td>
+                        <td title={e.timestamp}>{dayjs(e.timestamp).fromNow()}</td>
                         <td>{e.name}</td>
                         <td>{e.email}</td>
                         <td>{e.birthDate}</td>
