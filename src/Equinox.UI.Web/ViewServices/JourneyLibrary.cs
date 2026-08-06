@@ -41,6 +41,13 @@ public sealed class JourneyLibrary
             .ToArray();
     }
 
+    /// <summary>The narrative front page, rendered above the chapter list.</summary>
+    public string Overview()
+    {
+        var path = Path.Combine(_root, "..", "overview.md");
+        return File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+    }
+
     /// <summary>Raw markdown for one chapter, or empty if the slug is unknown.</summary>
     public string Read(string slug)
     {

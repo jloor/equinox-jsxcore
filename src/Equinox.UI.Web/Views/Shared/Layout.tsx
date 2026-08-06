@@ -76,6 +76,11 @@ export function Layout({ children }: { children: ComponentChildren }) {
                                         Customers
                                     </a>
                                 </li>
+                                <li>
+                                    <a class="nav-link text-light" href="/journey">
+                                        The writeup
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                     </div>

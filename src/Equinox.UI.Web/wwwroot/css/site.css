@@ -69,3 +69,85 @@ body {
   white-space: nowrap;
   line-height: 60px; /* Vertically center the text there */
 }
+
+/* ---------------------------------------------------------------------------
+   The writeup at /journey.
+   Long-form reading: a measure that does not span the viewport, and tables and
+   code blocks that scroll inside their own box rather than widening the page.
+   --------------------------------------------------------------------------- */
+.journey-chapter,
+.journey-toc,
+.journey-chapter + hr,
+.journey-toc + hr {
+    max-width: 46rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.journey-chapter {
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: #24292f;
+}
+
+.journey-chapter h1 { font-size: 2rem; line-height: 1.25; margin-bottom: .5rem; }
+.journey-chapter h2 { font-size: 1.4rem; margin-top: 2.25rem; margin-bottom: .75rem; }
+.journey-chapter h3 { font-size: 1.15rem; margin-top: 1.75rem; }
+
+.journey-standfirst {
+    font-size: 1.15rem;
+    color: #57606a;
+    margin-bottom: 1.75rem;
+}
+
+.journey-chapter p,
+.journey-chapter ul,
+.journey-chapter ol { margin-bottom: 1.15rem; }
+
+.journey-chapter blockquote {
+    border-left: 3px solid #d0d7de;
+    padding-left: 1rem;
+    color: #57606a;
+    margin: 1.25rem 0;
+}
+
+/* Wide content scrolls inside itself; the page never scrolls sideways. */
+.journey-chapter pre,
+.journey-chapter .table-wrap { overflow-x: auto; }
+
+.journey-chapter pre {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: .85rem 1rem;
+    font-size: .9rem;
+    line-height: 1.45;
+}
+
+.journey-chapter :not(pre) > code {
+    background: #f6f8fa;
+    border-radius: 4px;
+    padding: .12em .35em;
+    font-size: .9em;
+}
+
+.journey-chapter table {
+    width: 100%;
+    margin: 1.25rem 0;
+    font-size: .95rem;
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+}
+
+.journey-chapter th,
+.journey-chapter td {
+    border: 1px solid #d0d7de;
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.journey-chapter th { background: #f6f8fa; }
+
+.journey-toc { line-height: 2; }

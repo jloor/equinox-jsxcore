@@ -33,7 +33,7 @@ export default function Index() {
                 The interesting part was not the JSX. It was the ten things the migration plan got
                 wrong about the codebase, a three-tier authorization model nobody had documented,
                 and three deploy failures that each produced a completely clean startup log.{" "}
-                <a href={`${REPO}/tree/master/journey`}>The whole thing is written up here</a>,
+                <a href="/journey">The whole thing is written up here</a>,
                 including the mistakes.
             </p>
 
@@ -99,7 +99,8 @@ export default function Index() {
                 <div class="col-md-4">
                     <h4>Links</h4>
                     <ul>
-                        <li><a href={REPO}>Source and writeup</a></li>
+                        <li><a href="/journey">Read the writeup</a></li>
+                        <li><a href={REPO}>Source on GitHub</a></li>
                         <li><a href="https://github.com/EduardoPires/EquinoxProject" target="_blank">Equinox Project</a> (MIT)</li>
                         <li><a href="https://github.com/davidwhitney/JsxCore" target="_blank">JsxCore</a> (MIT)</li>
                     </ul>

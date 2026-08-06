@@ -83,5 +83,6 @@ EXPOSE 8080
 COPY --from=build /src/src/Equinox.UI.Web/node_modules ./node_modules
 
 COPY journey/chapters ./journey/chapters
+COPY journey/overview.md ./journey/overview.md
 
 ENTRYPOINT ["dotnet", "Equinox.UI.Web.dll"]

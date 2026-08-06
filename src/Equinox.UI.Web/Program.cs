@@ -118,7 +118,11 @@ app.MapRazorPages();
 // server-side, in an image with no Node and no npm. Routed here rather than through a
 // controller because this project's constraints forbid modifying Controllers/.
 app.MapGet("/journey", (JourneyLibrary journey) =>
-    Results.Extensions.Jsx("Journey/Index", journey.List()));
+    Results.Extensions.Jsx("Journey/Index", new
+    {
+        overview = journey.Overview(),
+        chapters = journey.List(),
+    }));
 
 app.MapGet("/journey/{slug}", (string slug, JourneyLibrary journey) =>
 {
