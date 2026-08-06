@@ -85,58 +85,90 @@ else
     fi
 fi
 
-# ---------------------------------------------------------------- regions
+# ---------------------------------------------------------------- regions + volume
+#
+# Both come from GET /apps/{id}, whose real shape is:
+#
+#   regionSettings: { allowedRegionIds: ["ASB"], requiredRegionIds: ["ASB"],
+#                     maxAllowedRegions: 1, provisioningType: "static" }
+#   volumes:        [ { name: "equinox-data", size: 1 } ]
+#   containerTemplates: [ { volumeMounts: [ { name: ..., mountPath: "/data" } ] } ]
+#
+# An earlier version of this script guessed at these. It walked the payload for any list
+# whose key contained "region" and summed them, so allowedRegionIds + requiredRegionIds
+# (both ["ASB"]) counted as 2 regions. And it looked for the mount path in
+# /apps/{id}/volumes, which reports name/size/usage but NOT mountPath. Both produced
+# false FAILs against a correctly configured app.
+#
+# Failing safe is necessary but not sufficient: a guard that cries wolf gets ignored, and
+# an ignored guard protects nothing.
 
-regions="$(get "apps/$APP_ID/region-settings")"
-if [[ -z "$regions" ]]; then
-    emit regions UNKNOWN "no response from /apps/$APP_ID/region-settings"
+app="$(get "apps/$APP_ID")"
+
+if [[ -z "$app" ]]; then
+    emit regions UNKNOWN "no response from /apps/$APP_ID"
+    emit volume  UNKNOWN "no response from /apps/$APP_ID"
 else
-    count="$(printf '%s' "$regions" | python3 -c "
+    printf '%s' "$app" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
 except Exception:
-    sys.exit(1)
-# Count enabled regions across whatever shape the payload uses.
-def collect(n):
-    out = []
-    if isinstance(n, dict):
-        for k, v in n.items():
-            if isinstance(v, list) and 'region' in k.lower():
-                out += v
-            else:
-                out += collect(v)
-    elif isinstance(n, list):
-        for v in n:
-            out += collect(v)
-    return out
-items = collect(d)
-if not items and isinstance(d, list):
-    items = d
-enabled = [
-    r for r in items
-    if not isinstance(r, dict) or r.get('enabled', r.get('Enabled', True))
-]
-print(len(enabled))
+    print('regions|UNKNOWN|payload was not JSON')
+    print('volume|UNKNOWN|payload was not JSON')
+    raise SystemExit(0)
+
+rs = d.get('regionSettings') or {}
+allowed  = rs.get('allowedRegionIds')  or []
+required = rs.get('requiredRegionIds') or []
+cap      = rs.get('maxAllowedRegions')
+
+# The set of DISTINCT regions is what matters; allowed and required overlap by design.
+distinct = sorted(set(allowed) | set(required))
+
+if not distinct and cap is None:
+    print('regions|UNKNOWN|no regionSettings in payload')
+elif len(distinct) != 1:
+    print('regions|FAIL|%d distinct regions %s - MUST be 1; each region gets its own volume'
+          % (len(distinct), distinct))
+elif cap not in (None, 1):
+    print('regions|FAIL|pinned to %s but maxAllowedRegions=%s allows scaling out' % (distinct[0], cap))
+else:
+    print('regions|PASS|pinned to %s (maxAllowedRegions=%s)' % (distinct[0], cap))
+
+# mountPath lives on the container template; the volume itself is declared app-level.
+declared = {v.get('name') for v in (d.get('volumes') or []) if isinstance(v, dict)}
+mounts = []
+for ct in d.get('containerTemplates') or []:
+    for m in ct.get('volumeMounts') or []:
+        mounts.append((m.get('name'), m.get('mountPath')))
+
+at_data = [n for n, p in mounts if p == '/data']
+
+if not d.get('containerTemplates'):
+    print('volume|UNKNOWN|no containerTemplates in payload')
+elif not at_data:
+    print('volume|FAIL|nothing mounted at /data (mounts=%s) - SQLite would live in the '
+          'container layer and reset on every deploy' % (mounts or 'none'))
+elif not declared:
+    print('volume|FAIL|%s mounted at /data but no persistent volume declared' % at_data[0])
+elif at_data[0] not in declared:
+    print('volume|FAIL|mount references %r but declared volumes are %s' % (at_data[0], sorted(declared)))
+else:
+    print('volume|PASS|persistent volume %r mounted at /data' % at_data[0])
+" 2>/dev/null | while IFS='|' read -r id status detail; do
+        emit "$id" "$status" "$detail"
+    done
+    # The while loop runs in a subshell, so re-derive the failure state here.
+    if printf '%s' "$app" | grep -q '"regionSettings"'; then
+        distinct="$(printf '%s' "$app" | python3 -c "
+import sys, json
+d = json.load(sys.stdin); rs = d.get('regionSettings') or {}
+print(len(set(rs.get('allowedRegionIds') or []) | set(rs.get('requiredRegionIds') or [])))
 " 2>/dev/null)"
-    if [[ -z "$count" ]]; then
-        emit regions UNKNOWN "could not read regions from payload: $regions"
-    elif [[ "$count" == "1" ]]; then
-        emit regions PASS "pinned to 1 region"
-    else
-        emit regions FAIL "$count regions enabled - MUST be 1; each region gets its own volume"
+        [[ "$distinct" == "1" ]] || FAILED=1
     fi
-fi
-
-# ---------------------------------------------------------------- volume
-
-vols="$(get "apps/$APP_ID/volumes")"
-if [[ -z "$vols" ]]; then
-    emit volume UNKNOWN "no response from /apps/$APP_ID/volumes"
-elif printf '%s' "$vols" | grep -q '/data'; then
-    emit volume PASS "persistent volume mounted at /data"
-else
-    emit volume FAIL "no volume mounted at /data - SQLite would live in the container layer and reset on every deploy: $vols"
+    printf '%s' "$app" | grep -q '"mountPath": *"/data"' || FAILED=1
 fi
 
 exit $FAILED
