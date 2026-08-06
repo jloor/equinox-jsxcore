@@ -254,3 +254,46 @@ if you only read the status letter.
 This matters for the loop: an automated check reading `%G?` would have reported unsigned
 commits and "fixed" a problem that didn't exist. The oracle has to distinguish
 *absent signature* from *unverifiable locally*.
+
+---
+
+## D11 — Patch the vulnerable crypto chain, breaking a stated constraint
+**2026-08-06**
+
+**Ambiguity:** The baseline build emitted 16 `NU1903` warnings — **8 distinct
+high-severity advisories** against `System.Security.Cryptography.Xml` 9.0.3, including
+CVE-2026-26171 (.NET Denial of Service). It is a *direct* `PackageReference` in
+`Equinox.Infra.Data`.
+
+The constraints say *"Do NOT modify the domain layer, application layer, or infrastructure
+layer."* `Equinox.Infra.Data` **is** the infrastructure layer. So the rules forbid patching
+known high-severity vulnerabilities in an app being deployed to the public internet.
+
+The spec also demanded *"0 errors and 0 warnings"* — unreachable without the fix. Two of
+its own rules in direct conflict.
+
+**Chose:** Bump the chain to 9.0.18. Explicit, documented deviation from the constraint.
+
+**Why:** The constraint exists to stop the migration turning into a rewrite of layers that
+aren't being demonstrated. A dependency version bump isn't that — no logic changed, no
+types moved, no behaviour altered. Publishing a demo with 8 known high-severity advisories,
+then linking it from a post about engineering practice, is a materially worse outcome than
+a one-line deviation that gets written down.
+
+**What it actually took** — not one bump but three, discovered by failing:
+
+```
+NU1605: Detected package downgrade: System.Security.Cryptography.Pkcs from 9.0.18 to 9.0.3
+  Equinox.Infra.Data -> System.Security.Cryptography.Xml 9.0.18 -> Pkcs (>= 9.0.18)
+  Equinox.Infra.Data -> System.Security.Cryptography.Pkcs (>= 9.0.3)
+```
+
+`Xml` 9.0.18 requires `Pkcs` >= 9.0.18, which requires `System.Formats.Asn1`. All three are
+pinned directly in the csproj, so all three had to move together. The project treats
+NU1605 as an error, so this failed the restore rather than warning.
+
+**Result:** `0 Warning(s), 0 Error(s)`. The oracle's `BASELINE_WARNINGS` moved from 16 to 0,
+so the spec's original criterion is now asserted as written instead of as a concession —
+and any new warning fails the build rather than hiding in the noise.
+
+**Traded:** Strict constraint compliance, deliberately and on the record.

@@ -18,10 +18,11 @@ VIEWS="$WEB/Views"
 PORT="${PORT:-5000}"
 BASE="http://localhost:$PORT"
 
-# Baseline warning count on unmodified Equinox (16 x NU1903, a high-severity
-# vuln in System.Security.Cryptography.Xml 9.0.3). The spec demanded "0 warnings",
-# which untouched Equinox already fails. We assert "no NEW warnings" instead.
-BASELINE_WARNINGS="${BASELINE_WARNINGS:-16}"
+# Unmodified Equinox emitted 16 NU1903 warnings: 8 distinct high-severity
+# advisories against System.Security.Cryptography.Xml 9.0.3, each reported twice.
+# Patched in D11 by bumping the crypto chain to 9.0.18, so the spec's original
+# "0 warnings" criterion is now genuinely reachable and is asserted as written.
+BASELINE_WARNINGS="${BASELINE_WARNINGS:-0}"
 
 FAILED=0
 STATIC_ONLY=0
@@ -98,7 +99,7 @@ fi
 warns="$(grep -oP '^\s+\K\d+(?= Warning\(s\))' "$BUILD_LOG" | tail -1 || echo 0)"
 warns="${warns:-0}"
 if [[ "$warns" -le "$BASELINE_WARNINGS" ]]; then
-    emit build-no-new-warnings PASS "$warns warnings (baseline $BASELINE_WARNINGS, all NU1903)"
+    emit build-no-new-warnings PASS "$warns warnings (baseline $BASELINE_WARNINGS)"
 else
     emit build-no-new-warnings FAIL "$warns warnings > baseline $BASELINE_WARNINGS: $(grep -oP 'warning \K[A-Z]+[0-9]+' "$BUILD_LOG" | sort -u | grep -v NU1903 | tr '\n' ' ')"
 fi
