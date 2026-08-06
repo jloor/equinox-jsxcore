@@ -123,7 +123,13 @@ app.MapGet("/journey", (JourneyLibrary journey) =>
 app.MapGet("/journey/{slug}", (string slug, JourneyLibrary journey) =>
 {
     var markdown = journey.Read(slug);
-    var title = journey.List().FirstOrDefault(c => c.Slug == slug)?.Title ?? "Not found";
+
+    // 404, not a 200 carrying a "not found" body. The view used to render an apology with a
+    // success status, which is wrong for crawlers and actively misleading for verification:
+    // a deploy check asserting "HTTP 200" passed against a chapter that did not exist.
+    if (string.IsNullOrEmpty(markdown)) return Results.NotFound();
+
+    var title = journey.List().FirstOrDefault(c => c.Slug == slug)?.Title ?? slug;
     return Results.Extensions.Jsx("Journey/Chapter", new { slug, title, markdown },
         RenderMode.ServerAndClient);
 });

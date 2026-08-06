@@ -237,8 +237,31 @@ check added in this chapter fails loudly when it cannot evaluate its own subject
 the Bunny guard, which reports `UNKNOWN` and exits non-zero rather than assuming a default
 is fine.
 
-22 checks now run against the application on every push, plus 10 against the production
+23 checks now run against the application on every push, plus 10 against the production
 image and 3 against the deployment's configuration. Every claim on the home page is
 machine-verified rather than asserted.
+
+### Postscript: it happened again, immediately
+
+Minutes after writing the paragraph above, I checked whether this very chapter was live:
+
+```
+/journey/07-proving-the-claims -> HTTP 200
+```
+
+It was not live. The page returned `200` while rendering **"Chapter not found"**, because
+the view answered a missing chapter with an apology and a success status. At the same moment
+the deployed commit was `3616b70` while the chapter was in `71b6e61`, and the CI check that
+said "completed success" had read the *previous* run, because polling immediately after a
+push returns the run that finished before it.
+
+Three false passes in one command, in the space of about thirty seconds, in a check
+verifying a chapter about false passes.
+
+The bug was real and is fixed — an unknown chapter now returns `404`, and there is a check
+asserting it. But the more useful lesson is that knowing about this failure mode does not
+confer immunity from it. The only thing that helps is the boring one: compare against
+something that can actually differ. The deployed SHA versus the expected SHA. Rendered
+markup versus a status code. What the check can *distinguish*, not what it can *observe*.
 
 The migration was the easy part.

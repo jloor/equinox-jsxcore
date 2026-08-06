@@ -241,6 +241,14 @@ else
     emit npm-server-render FAIL "chapter served but markdown was not converted"
 fi
 
+# An unknown chapter must 404. It previously returned 200 with a "not found" body, which
+# meant a status-code check passed against a chapter that did not exist - the same shape as
+# every other false pass in this project.
+missing_code="$(code "$BASE/journey/no-such-chapter-xyz")"
+[[ "$missing_code" == "404" ]] \
+    && emit npm-chapter-404 PASS "unknown chapter -> 404" \
+    || emit npm-chapter-404 FAIL "unknown chapter -> $missing_code (should be 404)"
+
 # highlight.js cannot be server-rendered - Jint's parser rejects it with
 # "Script nesting exceeds maximum depth of 256 levels" - so it is dynamically imported in
 # the browser only. Its presence in the import map is what proves npm packages reach the
