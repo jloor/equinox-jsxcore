@@ -187,3 +187,70 @@ after D7 includes both the forms and the summary.
 **Why this needs to be a written rule:** forgetting the directive doesn't error. The page
 looks correct in a browser and is blank to everything else. It's the highest-risk silent
 failure found so far, so it belongs in the verify script, not in someone's memory.
+
+---
+
+## D9 — Repo-local git identity, not global
+**2026-08-05**
+
+**Ambiguity:** This machine has four GitHub accounts authenticated in `gh` (`dealfone`,
+`StrongStool0954`, `dealfone-jl`, `jloor`) and a global git config committing as
+`StrongStool0954`. The project needs to publish as `jloor`.
+
+**Chose:** Set `user.name`, `user.email`, `user.signingkey`, and `core.sshCommand`
+**repo-local**. Global config untouched.
+
+**Why:** The global identity is used by every other project on this machine. Repointing it
+to publish one repo would silently re-attribute unrelated work.
+
+**Email:** `30563101+jloor@users.noreply.github.com` rather than a real address. GitHub
+attributes commits by email, so this gets correct attribution *and* keeps a personal
+address off a repo that is public by design.
+
+**Verified end-to-end before doing any real work** — the first commit reported
+`GitHub verified: True, reason: valid, attributed to: jloor`. Worth doing on commit #1
+rather than discovering it at commit #40.
+
+### Two traps hit on the way
+
+**1. SSH failed despite the key being correct.** `git clone` returned
+`Permission denied (publickey)` while `ssh -T git@github.com` returned
+`Hi jloor! You've successfully authenticated`. Cause: the 1Password agent holds **19 keys**,
+and SSH exhausts `MaxAuthTries` before reaching the right one. There was also a
+`1Password agent refused operation` on an unrelated key mid-negotiation.
+
+Fixed without touching the global SSH config:
+
+```bash
+git config core.sshCommand 'ssh -o IdentitiesOnly=yes -i ~/.ssh/jloor_github.pub'
+```
+
+**2. `.gitignore` silently swallowed the entire project writeup.** The documentation was
+being written to `journey/artifacts/`. Equinox ships the standard .NET `.gitignore`, whose
+line 45 is `artifacts/` — meant for build output. `git add` reported success and staged
+nothing; only `git check-ignore -v` revealed it.
+
+Renamed to `journey/chapters/`. Fighting the ignore file with a negation would have worked
+but left a trap for anyone reading the repo later.
+
+**Worth noting:** this would have destroyed the deliverable silently. The code would have
+been fine and every word of the writeup would have been absent from the public repo — the
+one part of this project that can't be reconstructed afterwards.
+
+---
+
+## D10 — Signing verification is local too
+**2026-08-05**
+
+**Ambiguity:** After the first signed commit, `git log --format=%G?` reported `N` (no
+signature) and errored with `gpg.ssh.allowedSignersFile needs to be configured`.
+
+**Chose:** Configure `~/.ssh/allowed_signers` rather than assume signing was broken.
+
+**Why:** The commit object *did* contain a `gpgsig` header — the signature existed. `N`
+meant "cannot verify locally," not "not signed." Two different failures that look identical
+if you only read the status letter.
+
+This matters for the loop: an automated check reading `%G?` would have reported unsigned
+commits and "fixed" a problem that didn't exist. The oracle has to distinguish
+*absent signature* from *unverifiable locally*.
