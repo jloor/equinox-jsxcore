@@ -241,13 +241,22 @@ else
     emit npm-server-render FAIL "chapter served but markdown was not converted"
 fi
 
-# An unknown chapter must 404. It previously returned 200 with a "not found" body, which
-# meant a status-code check passed against a chapter that did not exist - the same shape as
-# every other false pass in this project.
+# An unknown chapter must not return 200. It previously answered with a "not found" body and
+# a success status, so a status-code check passed against a chapter that did not exist.
+#
+# The invariant is "not 200", not "exactly 404", because the status differs by environment:
+# Development returns a plain 404, while the container has Equinox's global
+# UseStatusCodePagesWithRedirects("/error/{0}") in the pipeline, which turns it into a 302 to
+# the error page. Asserting 404 here passed in Development and would have been wrong about
+# production - the same environment-shaped blind spot as the rest of this project.
 missing_code="$(code "$BASE/journey/no-such-chapter-xyz")"
-[[ "$missing_code" == "404" ]] \
-    && emit npm-chapter-404 PASS "unknown chapter -> 404" \
-    || emit npm-chapter-404 FAIL "unknown chapter -> $missing_code (should be 404)"
+if [[ "$missing_code" == "200" ]]; then
+    emit chapter-not-found FAIL "unknown chapter -> 200; a status check would pass against a missing page"
+elif [[ "$missing_code" == "404" || "$missing_code" == "302" ]]; then
+    emit chapter-not-found PASS "unknown chapter -> $missing_code"
+else
+    emit chapter-not-found FAIL "unknown chapter -> $missing_code (expected 404, or 302 via status-code pages)"
+fi
 
 # highlight.js cannot be server-rendered - Jint's parser rejects it with
 # "Script nesting exceeds maximum depth of 256 levels" - so it is dynamically imported in

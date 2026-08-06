@@ -104,6 +104,14 @@ else
     emit server-rendered PASS "markup present in root div"
 fi
 
+# Production-side counterpart: a missing chapter must not be a 200. In the container the
+# app's global status-code pages turn the 404 into a redirect, which is fine - what matters
+# is that it is not a success.
+missing_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE/journey/no-such-chapter-xyz")"
+[[ "$missing_code" == "200" ]] \
+    && emit chapter-not-found FAIL "unknown chapter -> 200 in production" \
+    || emit chapter-not-found PASS "unknown chapter -> $missing_code"
+
 # /version is what the deploy step polls to tell "the new build is live" from "something
 # is live". If it stops reporting, deploy verification silently degrades to a liveness
 # check - which is exactly the failure this endpoint was added to fix.
