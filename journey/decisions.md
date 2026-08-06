@@ -19,7 +19,7 @@ instruction. Tempting to just start.
 first destructive step (deleting `.cshtml` files) is unrecoverable without commits.
 
 **Result:** Eight wrong claims found, including one impossible success criterion. See
-`artifacts/00-spec-review.md`.
+`chapters/00-spec-review.md`.
 
 **Traded:** ~20 minutes before any code was written.
 
@@ -142,8 +142,13 @@ through converting a real app with the originals already deleted.
 **Traded:** ~30 minutes before real work starts. The spike doubles as standalone content:
 it's the cleanest possible demonstration that adding JsxCore needs almost no .NET knowledge.
 
-**Outcome:** 3 of 4 verified. ViewComponents are broken in 1.0.0 — the model never
-reaches the view. See `artifacts/02-spike-four-unknowns.md`. Decision D6 paid for itself.
+**Outcome:** 3 of 4 verified — server rendering, layouts (as components, not `_Layout`),
+and antiforgery (via globals, undocumented). The fourth, ViewComponents, I initially
+reported as broken; that was my own casing bug and is corrected in D7 and
+`chapters/02-spike-four-unknowns.md`.
+
+D6 still paid for itself: it found that JsxCore has **no layout mechanism at all**, which
+invalidated the spec's view-conversion ordering before a single file was deleted.
 
 ---
 
