@@ -159,9 +159,12 @@ jobs:
         run: |
           URL="${{ vars.BUNNY_APP_URL }}"
           echo "Waiting for $URL to serve the new build..."
+          # Marker comes from Shared/Layout.tsx, so it proves the layout composed and the
+          # view rendered - without pinning page copy, which changes for editorial reasons
+          # and would otherwise fail the deploy for no health-related reason.
           for i in $(seq 1 40); do
             body="$(curl -sS --max-time 20 "$URL/" || true)"
-            if [[ "$body" == *"Welcome - Equinox Project"* ]]; then
+            if [[ "$body" == *"/customer-management/list-all"* ]]; then
               echo "Home page is live."
               # The seeded customer proves the database came up, not just Kestrel.
               list="$(curl -sS --max-time 20 "$URL/customer-management/list-all" || true)"

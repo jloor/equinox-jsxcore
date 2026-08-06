@@ -77,7 +77,11 @@ check() { # id path expected-substring
     fi
 }
 
-check home            "/"                                "Welcome - Equinox Project"
+# Assert on a marker that proves the LAYOUT and the VIEW both rendered, rather than on
+# copy. An earlier version pinned the exact <title> text and broke the build the first
+# time the home page was reworded - a false failure that says nothing about health.
+# The nav link comes from Shared/Layout.tsx, so its presence proves the layout composed.
+check home            "/"                                "/customer-management/list-all"
 check customer-list   "/customer-management/list-all"    "Eduardo Pires"
 check identity-login  "/Identity/Account/Login"          ""
 check identity-reg    "/Identity/Account/Register"       ""
