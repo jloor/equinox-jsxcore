@@ -106,3 +106,70 @@ jobs:
             echo ""
             echo "Verified in development (15 checks) and smoke-tested in production mode."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy to Bunny Magic Containers
+    needs: publish
+    # Skipped entirely until the Bunny variables exist, so the pipeline stays green
+    # before the account is wired up instead of failing on a missing secret. Once
+    # BUNNY_APP_ID is set as a repository variable, this starts running on its own.
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      vars.BUNNY_APP_ID != ''
+    runs-on: ubuntu-latest
+    steps:
+      # Deploys by immutable commit SHA, never :latest. That makes redeploys idempotent
+      # and makes rollback the same call with an earlier SHA, rather than depending on
+      # where a mutable tag happens to point.
+      #
+      # NOTE: this action is pinned to @main, which is what Bunny documents. It is a
+      # mutable reference - the code executed here can change without a commit in this
+      # repo. Pin to a commit SHA once a released version exists.
+      - name: Roll app to the new image
+        uses: BunnyWay/actions/container-update-image@main
+        with:
+          app_id: ${{ vars.BUNNY_APP_ID }}
+          api_key: ${{ secrets.BUNNY_API_KEY }}
+          container: ${{ vars.BUNNY_CONTAINER_NAME || 'app' }}
+          image_tag: ${{ github.sha }}
+
+      # "The API accepted the deploy" is not the same as "the site works". Magic
+      # Containers pins to one region with one replica (SQLite is single-writer), so a
+      # rollout replaces the only instance - if the new image is broken, the demo is down.
+      #
+      # This polls the live URL until it serves real content, and fails the job if it
+      # never does. Without it a green pipeline can sit above a dead demo.
+      - name: Verify the live site
+        if: vars.BUNNY_APP_URL != ''
+        run: |
+          URL="${{ vars.BUNNY_APP_URL }}"
+          echo "Waiting for $URL to serve the new build..."
+          for i in $(seq 1 40); do
+            body="$(curl -sS --max-time 20 "$URL/" || true)"
+            if [[ "$body" == *"Welcome - Equinox Project"* ]]; then
+              echo "Home page is live."
+              # The seeded customer proves the database came up, not just Kestrel.
+              list="$(curl -sS --max-time 20 "$URL/customer-management/list-all" || true)"
+              if [[ "$list" == *"Eduardo Pires"* ]]; then
+                echo "Customer list is serving seeded data."
+                exit 0
+              fi
+              echo "  [$i] app up, database not ready yet"
+            else
+              echo "  [$i] not ready"
+            fi
+            sleep 15
+          done
+          echo "::error::$URL did not serve the expected content within ~10 minutes"
+          exit 1
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deployed"
+            echo ""
+            echo "- image: \`${{ github.sha }}\`"
+            echo "- app:   \`${{ vars.BUNNY_APP_ID }}\`"
+            [ -n "${{ vars.BUNNY_APP_URL }}" ] && echo "- url:   ${{ vars.BUNNY_APP_URL }}"
+          } >> "$GITHUB_STEP_SUMMARY"
