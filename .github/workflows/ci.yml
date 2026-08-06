@@ -1,0 +1,108 @@
+# CI for the Equinox -> JsxCore migration.
+#
+# Branch is master, not main. The upstream fork's default branch is master, and the
+# original plan's workflow triggered on main - it would never have fired.
+#
+# Everything .NET runs INSIDE a Node-free container, never directly on the runner. The
+# ubuntu runner ships Node 22 and npm 10 preinstalled, so a build there would succeed
+# whether or not JsxCore actually needs them, silently invalidating the central claim of
+# this project. scripts/Dockerfile.verify hard-fails if node or npm are ever present.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  verify:
+    name: Verify (development)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Node-free verify image
+        run: docker build -f scripts/Dockerfile.verify -t equinox-verify:9.0 .
+
+      - name: Prove the build environment has no Node
+        run: |
+          docker run --rm equinox-verify:9.0 bash -c '
+            for t in node npm npx yarn pnpm; do
+              if command -v $t >/dev/null 2>&1; then echo "FATAL: $t present" >&2; exit 1; fi
+            done
+            echo "no JS tooling on PATH; dotnet $(dotnet --version)"
+          '
+
+      # Equinox ships 7 architecture tests enforcing layer boundaries. Worth running
+      # precisely because this project deliberately edited the infrastructure layer
+      # twice (D11, D13) - these say whether the layering itself still holds.
+      - name: Architecture tests
+        run: |
+          docker run --rm \
+            -v "$PWD":/src -w /src \
+            equinox-verify:9.0 dotnet test --verbosity quiet
+
+      # 15 checks: build, warnings-vs-baseline, view conversion, "use server" on every
+      # view, and full Customer CRUD through antiforgery-protected forms as a
+      # registered user. Exits non-zero if any fail.
+      - name: Run verification oracle
+        run: |
+          docker run --rm \
+            -v "$PWD":/src -w /src \
+            equinox-verify:9.0 ./scripts/verify.sh
+
+  publish:
+    name: Build and publish image
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write        # GITHUB_TOKEN can push to ghcr.io; no PAT needed.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tagged with the commit SHA as well as latest. Deploying by immutable SHA is what
+      # makes the rollout idempotent and lets a rollback be the same call with the
+      # previous tag, rather than hoping :latest points somewhere sane.
+      - name: Build image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            .
+
+      # Production-only smoke test. Everything that broke while containerising was
+      # invisible in development: the provider fell back to SQL Server, no schema was
+      # created, and unconfigured social-auth options threw on every request after a
+      # completely clean startup. This runs the real image and fetches real pages.
+      - name: Smoke test the built image
+        run: ./scripts/smoke-image.sh ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Push image
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published"
+            echo ""
+            echo '`'"${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"'`'
+            echo ""
+            echo "Verified in development (15 checks) and smoke-tested in production mode."
+          } >> "$GITHUB_STEP_SUMMARY"
