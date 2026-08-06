@@ -9,6 +9,19 @@
 //     application's JsonSerializerOptions rather than the .NET shape directly.
 // </auto-generated>
 
+declare namespace Equinox.Application.EventSourcedNormalizers {
+    /** Generated from Equinox.Application.EventSourcedNormalizers.CustomerHistoryData. */
+    interface CustomerHistoryData {
+        action: string;
+        id: string;
+        name: string;
+        email: string;
+        birthDate: string;
+        timestamp: string;
+        who: string;
+    }
+}
+
 declare namespace Equinox.Application.ViewModels {
     /** Generated from Equinox.Application.ViewModels.CustomerViewModel. */
     interface CustomerViewModel {

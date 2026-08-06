@@ -25,6 +25,12 @@ builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<AntiforgeryTokens>();
 builder.Services.AddScoped<ValidationState>();
 
+// Opts Customer/Index into RenderMode.ServerAndClient. That mode has no file directive - it
+// is a per-response decision, normally made in the controller, which this project may not
+// modify.
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.MvcOptions>(o =>
+    o.Filters.Add<JsxRenderModeFilter>());
+
 builder.AddJsxCore(options =>
 {
     // Razor used @inject and tag helpers; JsxCore views reach .NET only through
@@ -44,6 +50,7 @@ builder.AddJsxCore(options =>
     // controllers.
     options.TypeDefinitions.AutoExport =
           TypesFrom.NamespaceContaining<Equinox.Application.ViewModels.CustomerViewModel>()
+        + TypesFrom.NamespaceContaining<Equinox.Application.EventSourcedNormalizers.CustomerHistoryData>()
         + TypesFrom.NamespaceContaining<Equinox.UI.Web.Models.ErrorViewModel>();
 
     // Written into the source tree and committed, deliberately.

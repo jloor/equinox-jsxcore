@@ -173,6 +173,38 @@ done
     && emit route-list PASS "list-all -> 200" \
     || emit route-list FAIL "list-all -> $(code "$BASE/customer-management/list-all")"
 
+# The customer list runs in RenderMode.ServerAndClient: the SAME component renders on the
+# server for first paint and then hydrates in the browser for the history modal.
+#
+# Both halves are asserted because either can be lost silently. Drop the hydration and the
+# modal stops opening while the page still looks right. Drop the server pass and the page
+# looks right in a browser and is empty to crawlers and no-JS clients. Neither errors.
+list_html="$(curl -s --max-time 20 "$BASE/customer-management/list-all")"
+if [[ -z "$list_html" ]]; then
+    emit hydration FAIL "could not fetch the customer list"
+else
+    server_rendered=0; hydrating=0
+    [[ "$list_html" == *"<td>Eduardo Pires</td>"* ]] && server_rendered=1
+    [[ "$list_html" == *'"hydrate":true'* ]] && hydrating=1
+
+    if [[ "$server_rendered" -eq 1 && "$hydrating" -eq 1 ]]; then
+        emit hydration PASS "server-rendered rows AND hydrate:true - one component, both passes"
+    elif [[ "$hydrating" -eq 1 ]]; then
+        emit hydration FAIL "hydrating but no server-rendered rows - blank to crawlers and no-JS clients"
+    elif [[ "$server_rendered" -eq 1 ]]; then
+        emit hydration FAIL "server-rendered but not hydrating - the history modal will not open"
+    else
+        emit hydration FAIL "neither server-rendered rows nor hydration markers present"
+    fi
+
+    # Layout reads .NET globals, which throw on the client pass. The server writes its
+    # answers into data attributes so the client can reproduce identical markup; without
+    # them a signed-in user's nav flips to "Register / Login" after hydration.
+    [[ "$list_html" == *"data-signed-in="* ]] \
+        && emit hydration-safe-globals PASS "nav state bridged to the client pass" \
+        || emit hydration-safe-globals FAIL "no data-signed-in marker - nav will mismatch on hydration"
+fi
+
 # Create/Edit/Delete are [Authorize]; only Index/Details/History are [AllowAnonymous].
 anon="$(code "$BASE/customer-management/register-new")"
 [[ "$anon" == "302" ]] \
