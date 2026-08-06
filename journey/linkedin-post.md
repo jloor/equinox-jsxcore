@@ -38,15 +38,13 @@ mistake. Several of my own tests passed when they should have failed — includi
 thirty seconds after I'd finished writing about that exact problem.
 
 I wrote all of it down, corrections included, because the version where everything goes
-smoothly isn't useful to anyone.
+smoothly isn't useful to anyone. Writeup is in the comments.
 
 The part I didn't expect was how much I'd find worth giving back. Working carefully through
 two open-source projects surfaced four real issues — including a dependency update that
 doesn't fully patch what it claims to, and a bug that makes an app return errors on every
 request under a common configuration. All four are now filed upstream with reproductions,
 and I'd rather that be the outcome than a demo nobody looks at.
-
-The full writeup: https://equinox-jsxcore.jonathanloor.com/journey
 
 Sincere thanks to Eduardo Pires, whose Equinox Project is a genuinely excellent codebase to
 learn architecture from, and David Whitney, whose JsxCore is an ambitious piece of work. Both
