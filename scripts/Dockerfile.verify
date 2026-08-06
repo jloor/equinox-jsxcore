@@ -1,0 +1,27 @@
+# Verification environment for the Equinox -> JsxCore migration.
+#
+# Deliberately based on the plain .NET SDK image with NO Node.js and NO npm:
+# JsxCore claims to source its own TypeScript + esbuild toolchain, and that claim
+# is only testable somewhere clean. The host machine has node v24 and npm 11
+# installed, so a build there proves nothing.
+#
+# sqlite3 is added purely as a test fixture, so the oracle can grant its own
+# throwaway user the "Customers/Remove" claim. Equinox grants newly-registered
+# users "Customers/Write" only (Areas/Identity/Pages/Account/Register.cshtml.cs),
+# so a fresh account can Create/Read/Update but not Delete. Rather than guess the
+# seeded admin's password, the oracle manipulates test *data* and leaves the
+# authorization code path exactly as it ships.
+FROM mcr.microsoft.com/dotnet/sdk:9.0
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends sqlite3 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Fail loudly if a base-image change ever smuggles Node in, since that would
+# silently invalidate the "no Node required" result.
+RUN if command -v node >/dev/null || command -v npm >/dev/null; then \
+        echo "FATAL: node/npm present - 'no Node' claim becomes untestable" >&2; \
+        exit 1; \
+    fi
+
+WORKDIR /src

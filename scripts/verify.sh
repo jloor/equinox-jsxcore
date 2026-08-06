@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+# Verification oracle for the Equinox -> JsxCore migration.
+#
+# Emits one JSON object per criterion on stdout. Exits non-zero if any FAIL.
+# Designed to run INSIDE the .NET 9 container (needs dotnet + curl).
+#
+#   ./scripts/verify.sh            # build + runtime + CRUD
+#   ./scripts/verify.sh --static   # skip build/run, static checks only (fast)
+#
+# Why this exists: six of the original spec's nine success criteria had no
+# machine-checkable form. Without an oracle an agent grades its own homework.
+
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WEB="$ROOT/src/Equinox.UI.Web"
+VIEWS="$WEB/Views"
+PORT="${PORT:-5000}"
+BASE="http://localhost:$PORT"
+
+# Baseline warning count on unmodified Equinox (16 x NU1903, a high-severity
+# vuln in System.Security.Cryptography.Xml 9.0.3). The spec demanded "0 warnings",
+# which untouched Equinox already fails. We assert "no NEW warnings" instead.
+BASELINE_WARNINGS="${BASELINE_WARNINGS:-16}"
+
+FAILED=0
+STATIC_ONLY=0
+[[ "${1:-}" == "--static" ]] && STATIC_ONLY=1
+
+emit() { # id status detail
+    printf '{"id":"%s","status":"%s","detail":"%s"}\n' \
+        "$1" "$2" "$(printf '%s' "$3" | tr -d '\n' | sed 's/"/\\"/g')"
+    [[ "$2" == "FAIL" ]] && FAILED=1
+    return 0
+}
+
+token_from() { # file -> antiforgery token
+    grep -oE '<input[^>]*name="__RequestVerificationToken"[^>]*>' "$1" \
+        | head -1 | grep -oP 'value="\K[^"]+'
+}
+
+code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+
+# ---------------------------------------------------------------- static checks
+
+# D2: Razor and JsxCore coexist. Identity Razor Pages stay (they're required to
+# exercise Customer CRUD, which is [Authorize]). The criterion is scoped to Views/.
+leftover="$(find "$VIEWS" -name '*.cshtml' 2>/dev/null | grep -v '_ViewImports\|_ViewStart' | wc -l)"
+if [[ "$leftover" -eq 0 ]]; then
+    emit no-cshtml-in-views PASS "no .cshtml under Views/ (excl. _ViewImports/_ViewStart)"
+else
+    emit no-cshtml-in-views FAIL "$leftover .cshtml still in Views/: $(find "$VIEWS" -name '*.cshtml' | grep -v '_ViewImports\|_ViewStart' | head -5 | tr '\n' ' ')"
+fi
+
+# D8: every converted view must declare "use server" as its FIRST statement.
+# Forgetting it does not error - the page renders blank to crawlers and no-JS
+# clients while looking correct in a browser. Highest-risk silent failure found.
+missing=""
+count=0
+while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    count=$((count + 1))
+    first="$(grep -vE '^\s*(//|/\*|\*|$)' "$f" | head -1)"
+    [[ "$first" =~ ^\"use\ server\"\;?$|^\'use\ server\'\;?$ ]] || missing="$missing ${f#$VIEWS/}"
+done < <(find "$VIEWS" -name '*.tsx' 2>/dev/null)
+
+if [[ "$count" -eq 0 ]]; then
+    emit tsx-use-server SKIP "no .tsx views yet"
+elif [[ -z "$missing" ]]; then
+    emit tsx-use-server PASS "all $count .tsx views declare \"use server\""
+else
+    emit tsx-use-server FAIL "missing \"use server\":$missing"
+fi
+
+# Every Razor view should have a .tsx counterpart by the end.
+for v in $(find "$VIEWS" -name '*.cshtml' 2>/dev/null | grep -v '_ViewImports\|_ViewStart'); do
+    [[ -f "${v%.cshtml}.tsx" ]] || emit tsx-parity FAIL "no .tsx for ${v#$VIEWS/}"
+done
+
+[[ "$STATIC_ONLY" -eq 1 ]] && { exit $FAILED; }
+
+# ---------------------------------------------------------------------- build
+
+BUILD_LOG="$(mktemp)"
+if dotnet build "$ROOT/Equinox.sln" > "$BUILD_LOG" 2>&1; then
+    errs=$(grep -cP ': error ' "$BUILD_LOG" || true)
+    emit build PASS "0 errors"
+else
+    emit build FAIL "$(grep -P ': error ' "$BUILD_LOG" | head -3 | tr '\n' ';')"
+fi
+
+warns="$(grep -oP '^\s+\K\d+(?= Warning\(s\))' "$BUILD_LOG" | tail -1 || echo 0)"
+warns="${warns:-0}"
+if [[ "$warns" -le "$BASELINE_WARNINGS" ]]; then
+    emit build-no-new-warnings PASS "$warns warnings (baseline $BASELINE_WARNINGS, all NU1903)"
+else
+    emit build-no-new-warnings FAIL "$warns warnings > baseline $BASELINE_WARNINGS: $(grep -oP 'warning \K[A-Z]+[0-9]+' "$BUILD_LOG" | sort -u | grep -v NU1903 | tr '\n' ' ')"
+fi
+
+# JsxCore must source its own toolchain. If npm is on PATH the claim is untestable.
+if command -v npm >/dev/null 2>&1; then
+    emit no-node-toolchain FAIL "npm present on PATH - 'no Node required' cannot be verified here"
+else
+    emit no-node-toolchain PASS "built with no node/npm on PATH"
+fi
+
+# ---------------------------------------------------------------------- runtime
+
+cd "$WEB" || exit 1
+rm -f EquinoxProject.db*                      # deterministic: fresh seeded DB each run
+ASPNETCORE_ENVIRONMENT=Development dotnet run --no-build --urls "http://0.0.0.0:$PORT" \
+    > /tmp/verify-app.log 2>&1 &
+APP_PID=$!
+trap 'kill $APP_PID 2>/dev/null' EXIT
+
+up=0
+for _ in $(seq 1 60); do
+    curl -sf -o /dev/null "$BASE/" 2>/dev/null && { up=1; break; }
+    sleep 1
+done
+[[ "$up" -eq 1 ]] && emit app-starts PASS "responding on :$PORT" \
+                  || { emit app-starts FAIL "$(tail -3 /tmp/verify-app.log | tr '\n' ';')"; exit 1; }
+
+# Real routes are /customer-management/*, NOT /Customer/* - the controller uses
+# explicit attribute routes. A script written from the spec would 404 here.
+[[ "$(code "$BASE/")" == "200" ]] \
+    && emit route-home PASS "GET / -> 200" || emit route-home FAIL "GET / -> $(code "$BASE/")"
+
+[[ "$(code "$BASE/customer-management/list-all")" == "200" ]] \
+    && emit route-list PASS "list-all -> 200" \
+    || emit route-list FAIL "list-all -> $(code "$BASE/customer-management/list-all")"
+
+# Create/Edit/Delete are [Authorize]; only Index/Details/History are [AllowAnonymous].
+anon="$(code "$BASE/customer-management/register-new")"
+[[ "$anon" == "302" ]] \
+    && emit auth-enforced PASS "anonymous create -> 302 to login" \
+    || emit auth-enforced FAIL "anonymous create -> $anon (expected 302)"
+
+# ------------------------------------------------------------- authed CRUD flow
+
+CJ="$(mktemp)"
+EMAIL="verify-$$@example.com"
+PASS_W='Test@12345'
+
+curl -s -c "$CJ" "$BASE/Identity/Account/Register" > /tmp/reg.html
+RT="$(token_from /tmp/reg.html)"
+curl -s -b "$CJ" -c "$CJ" -o /dev/null -X POST "$BASE/Identity/Account/Register" \
+    --data-urlencode "__RequestVerificationToken=$RT" \
+    --data-urlencode "Input.Email=$EMAIL" \
+    --data-urlencode "Input.Password=$PASS_W" \
+    --data-urlencode "Input.ConfirmPassword=$PASS_W"
+
+# Registration grants "Customers/Write" only (Register.cshtml.cs), so a fresh
+# account can Create/Read/Update but NOT Delete - Delete needs "Customers/Remove",
+# which only the seeded admin has. Grant it to our throwaway user as a test
+# fixture. This touches test DATA only; the authorization code path is untouched.
+if command -v sqlite3 >/dev/null 2>&1; then
+    sqlite3 EquinoxProject.db \
+        "INSERT INTO AspNetUserClaims (UserId, ClaimType, ClaimValue)
+         SELECT Id, 'Customers', 'Remove' FROM AspNetUsers WHERE Email = '$EMAIL';" 2>/dev/null \
+        && emit fixture-claim PASS "granted Customers/Remove to $EMAIL" \
+        || emit fixture-claim FAIL "could not grant Remove claim"
+else
+    emit fixture-claim SKIP "sqlite3 unavailable - delete will fail on claims"
+fi
+
+# Claims live in the auth cookie, so re-login to pick up the new claim.
+rm -f "$CJ"; CJ="$(mktemp)"
+curl -s -c "$CJ" "$BASE/Identity/Account/Login" > /tmp/login.html
+LT="$(token_from /tmp/login.html)"
+curl -s -b "$CJ" -c "$CJ" -o /dev/null -X POST "$BASE/Identity/Account/Login" \
+    --data-urlencode "__RequestVerificationToken=$LT" \
+    --data-urlencode "Input.Email=$EMAIL" \
+    --data-urlencode "Input.Password=$PASS_W" \
+    --data-urlencode "Input.RememberMe=false"
+
+authed="$(code -b "$CJ" "$BASE/customer-management/register-new")"
+if [[ "$authed" != "200" ]]; then
+    emit crud-auth FAIL "could not authenticate; create page -> $authed"
+    exit 1
+fi
+emit crud-auth PASS "registered + logged in as $EMAIL"
+
+# CREATE
+curl -s -b "$CJ" -c "$CJ" "$BASE/customer-management/register-new" > /tmp/create.html
+CT="$(token_from /tmp/create.html)"
+NAME="Verify Bot $$"
+VEMAIL="bot-$$@example.com"
+curl -s -b "$CJ" -c "$CJ" -o /dev/null -X POST "$BASE/customer-management/register-new" \
+    --data-urlencode "__RequestVerificationToken=$CT" \
+    --data-urlencode "Name=$NAME" \
+    --data-urlencode "Email=$VEMAIL" \
+    --data-urlencode "BirthDate=1990-01-01"
+
+curl -s -b "$CJ" "$BASE/customer-management/list-all" > /tmp/list.html
+if grep -q "$VEMAIL" /tmp/list.html; then
+    emit crud-create PASS "customer $VEMAIL appears in list"
+else
+    emit crud-create FAIL "customer $VEMAIL not found after POST"
+fi
+
+# Grab the id for read/update/delete
+CID="$(grep -oP 'customer-details/\K[0-9a-f-]{36}' /tmp/list.html | tail -1)"
+if [[ -z "$CID" ]]; then
+    emit crud-read FAIL "no customer id found in list markup"
+else
+    [[ "$(code -b "$CJ" "$BASE/customer-management/customer-details/$CID")" == "200" ]] \
+        && emit crud-read PASS "details/$CID -> 200" \
+        || emit crud-read FAIL "details/$CID -> $(code -b "$CJ" "$BASE/customer-management/customer-details/$CID")"
+
+    # UPDATE
+    curl -s -b "$CJ" -c "$CJ" "$BASE/customer-management/edit-customer/$CID" > /tmp/edit.html
+    ET="$(token_from /tmp/edit.html)"
+    NEWNAME="Verified Bot $$"
+    curl -s -b "$CJ" -c "$CJ" -o /dev/null -X POST "$BASE/customer-management/edit-customer/$CID" \
+        --data-urlencode "__RequestVerificationToken=$ET" \
+        --data-urlencode "Id=$CID" \
+        --data-urlencode "Name=$NEWNAME" \
+        --data-urlencode "Email=$VEMAIL" \
+        --data-urlencode "BirthDate=1990-01-01"
+    curl -s -b "$CJ" "$BASE/customer-management/list-all" > /tmp/list2.html
+    grep -q "$NEWNAME" /tmp/list2.html \
+        && emit crud-update PASS "name updated to '$NEWNAME'" \
+        || emit crud-update FAIL "updated name not present after POST"
+
+    # DELETE
+    curl -s -b "$CJ" -c "$CJ" "$BASE/customer-management/remove-customer/$CID" > /tmp/del.html
+    DT="$(token_from /tmp/del.html)"
+    curl -s -b "$CJ" -c "$CJ" -o /dev/null -X POST "$BASE/customer-management/remove-customer/$CID" \
+        --data-urlencode "__RequestVerificationToken=$DT" \
+        --data-urlencode "id=$CID"
+    curl -s -b "$CJ" "$BASE/customer-management/list-all" > /tmp/list3.html
+    grep -q "$VEMAIL" /tmp/list3.html \
+        && emit crud-delete FAIL "customer still present after delete" \
+        || emit crud-delete PASS "customer removed"
+fi
+
+exit $FAILED
