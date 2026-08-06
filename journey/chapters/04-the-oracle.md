@@ -1,9 +1,9 @@
-# Chapter 4 — Building something that can tell me I'm wrong
+# Chapter 4: Building something that can tell me I'm wrong
 
 *2026-08-05. Still no migration work. This is the last thing built before it starts.*
 
 The original plan had nine success criteria as a markdown checklist. Six had no
-machine-checkable form — including *"Customer CRUD works end-to-end in the browser."*
+machine-checkable form, including *"Customer CRUD works end-to-end in the browser."*
 
 A checklist an agent evaluates by reading its own output isn't verification. So before
 converting a single view, the project needed an oracle: something that answers
@@ -58,13 +58,14 @@ await _userManager.AddClaimAsync(user, new Claim("Customers", "Write"));
 **A newly registered user gets `Write` but never `Remove`.** Only the seeded admin
 (`DbMigrationHelpers.cs`, `ClaimValue = "Write,Remove"`) can delete.
 
-So Equinox has a three-tier authorization model — anonymous read, registered write,
-admin delete — that the spec's one-line "Customer CRUD works end-to-end" completely hides.
+So Equinox has a three-tier authorization model, with anonymous read, registered write
+and admin delete, that the spec's one-line "Customer CRUD works end-to-end" completely
+hides.
 
 ### The wrong way to fix it
 
 My first instinct was to log in as the seeded admin, `teste@teste.com`. Its password isn't
-in the source — only a bcrypt hash — and isn't in the README. So I started a loop trying
+in the source, only a bcrypt hash, and isn't in the README. So I started a loop trying
 conventional defaults against the login endpoint.
 
 The sandbox blocked it, correctly. A loop POSTing candidate passwords at a login form is
@@ -87,7 +88,7 @@ admin password would have tested the same thing while also being the wrong habit
 One catch: claims are carried in the auth cookie, so the oracle has to log out and log
 back in after the insert or the new claim is invisible.
 
-This needed `sqlite3`, which isn't in the .NET SDK image — hence `scripts/Dockerfile.verify`,
+This needed `sqlite3`, which isn't in the .NET SDK image, hence `scripts/Dockerfile.verify`,
 which also hard-fails if a future base image ever smuggles Node in, since that would
 silently invalidate the whole "no Node required" result.
 
@@ -103,7 +104,7 @@ survive; they're required to log in, and logging in is required to exercise Cust
 The original criterion and the "don't modify the infrastructure layer" constraint were
 mutually exclusive.
 
-**`tsx-use-server`** — a criterion that didn't exist in the spec. Missing the `"use server"`
+**`tsx-use-server`**, a criterion that didn't exist in the spec. Missing the `"use server"`
 directive doesn't error; the page just renders blank to crawlers and no-JS clients while
 looking perfect in a browser. Machine-checkable, silent, and high-impact: exactly what an
 oracle is for.

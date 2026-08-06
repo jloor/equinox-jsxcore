@@ -1,4 +1,4 @@
-# Chapter 2 — Testing the four things the migration depends on
+# Chapter 2: Testing the four things the migration depends on
 
 *2026-08-05. Still in a throwaway project. Equinox untouched.*
 
@@ -9,12 +9,12 @@ One doesn't, and one of the three works in a way that changes the migration's sh
 |---|---|---|
 | 1 | Server-side rendering | ✅ works (`"use server"`) |
 | 2 | Shared layouts | ⚠️ works, but **not** the way Razor does |
-| 3 | Form POST + antiforgery | ✅ works — **via an undocumented route** |
-| 4 | ViewComponents | ⚠️ **work** — I misdiagnosed this; see the correction below |
+| 3 | Form POST + antiforgery | ✅ works, **via an undocumented route** |
+| 4 | ViewComponents | ⚠️ **work**. I misdiagnosed this; see the correction below |
 
 ---
 
-## 1. Server rendering — works
+## 1. Server rendering: works
 
 Default render mode is `Client`, which ships an empty `<div id="jsxcore-root">` and
 mounts in the browser. Wrong for an MVC app. The fix is a directive as the first
@@ -36,12 +36,12 @@ directive, or per-response at the endpoint.
 
 **Migration consequence:** every converted Equinox view needs `"use server"` at the top.
 Forget it and the page silently renders blank to crawlers and no-JS clients, while
-looking fine in a browser. That's a nasty failure mode — it doesn't error, it just
+looking fine in a browser. That's a nasty failure mode, because it doesn't error, it just
 quietly stops being an MVC app.
 
 ---
 
-## 2. Layouts — there is no `_Layout`
+## 2. Layouts: there is no `_Layout`
 
 **JsxCore has no layout concept at all.** No `_Layout`, no `_ViewStart`, no implicit
 wrapping. Searching the entire docs tree for "layout" turns up only a "project layout"
@@ -68,15 +68,15 @@ Verified working. But the model is fundamentally different from Razor:
 **Migration consequence:** the spec's "`_Layout.cshtml` → `_Layout.tsx`" implies a 1:1
 conversion. It isn't one. The file converts easily; the *mechanism* doesn't exist, and
 every single view has to be edited to opt in. This is more like a props-drilling refactor
-than a file rename — and it's invisible until you look at a rendered page.
+than a file rename, and it's invisible until you look at a rendered page.
 
 ---
 
-## 3. Antiforgery — works, but nothing documents it
+## 3. Antiforgery: works, but nothing documents it
 
 Searching every file in JsxCore's docs for `antiforgery`, `anti-forgery`, `csrf`,
 `RequestVerificationToken`, or `forgery` returns **zero hits**. The original spec said
-"check JsxCore docs for the equivalent of `@Html.AntiForgeryToken()`" — there is no
+"check JsxCore docs for the equivalent of `@Html.AntiForgeryToken()`". There is no
 equivalent documented.
 
 The mechanism that works is **.NET globals**. Register an ordinary C# service:
@@ -93,7 +93,7 @@ public sealed class AntiforgeryHelper(IAntiforgery antiforgery, IHttpContextAcce
 }
 ```
 
-Call it from the view — synchronously, no bridge, no fetch:
+Call it from the view, synchronously, with no bridge and no fetch:
 
 ```tsx
 import { Antiforgery } from "dotnet:globals";
@@ -109,17 +109,17 @@ POST with token         → HTTP 200   CREATED name=Ada email=ada@example.com to
 POST without token      → HTTP 400
 ```
 
-Enforcement is genuinely active — not bypassed, not disabled. Model binding into
+Enforcement is genuinely active, not bypassed and not disabled. Model binding into
 `CustomerViewModel` worked. And `return View(model)` from an MVC controller resolved
 `Create.tsx` with no extra wiring.
 
 **Constraint discovered:** globals only exist during server rendering. Any view using
-one *must* be `"use server"`. So every form in Equinox is locked to server rendering —
+one *must* be `"use server"`. So every form in Equinox is locked to server rendering,
 which is correct anyway, but it's a coupling nobody wrote down.
 
 ---
 
-## 4. ViewComponents — broken
+## 4. ViewComponents: broken
 
 Equinox has `Views/Shared/Components/Summary/`, so this matters.
 
@@ -173,7 +173,7 @@ declare namespace Equinox.UI.Web.Models {
 ```
 
 ViewComponents work. I reported a library as broken when I had written PascalCase against
-a camelCase payload — and the "hardcode 42 to rule out falsy rendering" test that felt like
+a camelCase payload, and the "hardcode 42 to rule out falsy rendering" test that felt like
 careful debugging only confirmed my own mistake more precisely.
 
 Worth being blunt about, because the failure mode is the point: `undefined` renders as
@@ -183,7 +183,7 @@ output alone, and I picked the one that blamed the dependency.
 
 ### What remains true
 
-The response really is a **full HTML document** — `<!DOCTYPE html>`, `<head>`, the entire
+The response really is a full HTML document: `<!DOCTYPE html>`, `<head>`, the entire
 import map, 1,599 bytes. For a ViewComponent returned directly from a controller action
 that is harmless. For one embedded in a page it is not, and Equinox embeds it:
 
@@ -191,13 +191,13 @@ that is harmless. For one embedded in a page it is not, and Equinox embeds it:
 <vc:summary />   <!-- inside Create.cshtml, Edit.cshtml, Delete.cshtml -->
 ```
 
-So for this codebase the ViewComponent still can't be used from TSX — but for two entirely
+So for this codebase the ViewComponent still can't be used from TSX, but for two entirely
 different reasons than "broken":
 
 1. `<vc:summary />` is a **Razor tag helper**. There is no TSX equivalent; a `.tsx` view
    cannot invoke a ViewComponent at all.
 2. Equinox's `Summary` takes **no model**. It reads `ViewData.ModelState.ErrorCount` and
-   `ViewBag.Sucesso` — request state a TSX view has no access to.
+   `ViewBag.Sucesso`, which is request state a TSX view has no access to.
 
 The fix is still to re-express it through globals (see D7), but as a validation-summary
 *component* reading a `ViewFeedback` global, not as a workaround for a broken feature.

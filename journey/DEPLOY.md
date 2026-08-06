@@ -148,7 +148,7 @@ gh workflow run ci.yml --ref <previous-good-sha>
 or set the image tag directly in the Bunny dashboard. Both are safe to repeat — the
 rollout is idempotent.
 
-## Custom domain — and why it was necessary, not cosmetic
+## Custom domain: and why it was necessary, not cosmetic
 
 Live at **https://equinox-jsxcore.jonathanloor.com**
 

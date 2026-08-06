@@ -1,4 +1,4 @@
-# Chapter 1 — Does JsxCore actually work with no Node?
+# Chapter 1: Does JsxCore actually work with no Node?
 
 *2026-08-05. Throwaway project, before touching Equinox.*
 
@@ -17,7 +17,7 @@ until it ran somewhere clean.
 
 ## Result: it works
 
-Three commands — `dotnet new web`, `dotnet add package JsxCore`, `dotnet build`:
+Three commands, `dotnet new web`, `dotnet add package JsxCore`, `dotnet build`:
 
 ```
 Spike -> /work/Spike/bin/Debug/net9.0/Spike.dll
@@ -37,7 +37,7 @@ Time Elapsed 00:00:09.31
 
 `Program.cs` was 8 lines. `Index.tsx` was 3. `GET /` returned `200 OK`.
 
-**The claim holds** — no Node runtime, no npm binary, TypeScript 7.0.2 and esbuild 0.28.1
+The claim holds. No Node runtime, no npm binary, TypeScript 7.0.2 and esbuild 0.28.1
 sourced by the .NET build itself.
 
 **The honest nuance:** "no npm" means *no npm binary*. JsxCore still writes a
@@ -73,21 +73,21 @@ Also notable: the generated import map aliases `react`, `react-dom`, and
 `react/jsx-runtime` onto `preact/compat`. React-shaped code works, but Preact is what
 actually runs. The spec's "convert to React components" framing was imprecise.
 
-And: `JsxCore generated TypeScript declarations for 0 .NET type(s)` — expected here, since
+And: `JsxCore generated TypeScript declarations for 0 .NET type(s)`, expected here, since
 the model was an anonymous type. Real ViewModels are what exercise the type generation.
 
 ## Still unverified
 
 The three things the migration actually depends on:
 
-1. **Shared layouts** — layouts are a Razor concept; JsxCore registers as an `IViewEngine`
-2. **Form POST with `[ValidateAntiForgeryToken]`** — needed for all of Customer CRUD
-3. **ViewComponents** — Equinox has `Views/Shared/Components/Summary`
+1. **Shared layouts.** Layouts are a Razor concept; JsxCore registers as an `IViewEngine`
+2. **Form POST with `[ValidateAntiForgeryToken]`**, needed for all of Customer CRUD
+3. **ViewComponents.** Equinox has `Views/Shared/Components/Summary`
 
 Plus, now: **server-side render mode**, which the default output doesn't use.
 
 ## Time
 
 Under 15 minutes from empty directory to rendered page, including pulling the image.
-No .NET knowledge was required for any of it — the whole surface was three commands
+No .NET knowledge was required for any of it. The whole surface was three commands
 and two files copied from the README.

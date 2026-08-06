@@ -1,4 +1,4 @@
-# Chapter 6 — The part that actually resisted
+# Chapter 6: The part that actually resisted
 
 *2026-08-06. Everything up to here was view conversion. This is where it fought back.*
 
@@ -16,14 +16,14 @@ FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 ```
 
 For a project targeting `net9.0`. It cannot build this codebase. The plan's deployment
-phase never mentioned a Dockerfile at all — it assumed `dotnet publish` to Azure App
+phase never mentioned a Dockerfile at all. It assumed `dotnet publish` to Azure App
 Service, so the one file that would have been the starting point was invisible to it.
 
 ---
 
 ## Failure 1: a provider inferred from an environment name, in two places
 
-Upstream picked the database provider by asking what environment it was in — SQLite under
+Upstream picked the database provider by asking what environment it was in: SQLite under
 `IsDevelopment()`, SQL Server otherwise. `appsettings.json` has no connection string at
 all, so any non-Development deployment had nothing to connect to.
 
@@ -57,7 +57,7 @@ if (env.IsDevelopment() || env.IsEnvironment("Docker"))
 
 Under `Production`, nothing creates the schema. Equinox anticipated containers with a
 `Docker` environment name, so the fix was to use the codebase's own convention rather than
-patch the helper — `ASPNETCORE_ENVIRONMENT=Docker` in the image.
+patch the helper, with `ASPNETCORE_ENVIRONMENT=Docker` in the image.
 
 ## Failure 3: a clean startup that 500s on every request
 
@@ -77,7 +77,7 @@ System.ArgumentNullException: Value cannot be null. (Parameter 'AppId')
 ```
 
 `AddSocialAuthenticationSupport` registered Facebook and Google unconditionally, reading
-credentials that only ever existed in `appsettings.Development.json` — as the literal
+credentials that only ever existed in `appsettings.Development.json`, as the literal
 placeholder string `"SetYourDataHere"`. Their options validate **lazily, on first use**,
 so nothing failed at startup. It failed inside the error handler too, so even the error
 page 500'd.
@@ -98,7 +98,7 @@ The smoke test now binds `18080` and asserts on page *content*, not just the cod
 
 **An IPv4-only bind that looks like a hang.** `ASPNETCORE_URLS=http://0.0.0.0:8080` binds
 IPv4 only. `curl localhost` resolves `::1` first, the port forwarder accepts the
-connection, and nothing ever answers — `HTTP 000`, indistinguishable from a deadlocked app.
+connection, and nothing ever answers. `HTTP 000`, indistinguishable from a deadlocked app.
 `http://*:8080` binds both.
 
 ---
@@ -107,14 +107,14 @@ connection, and nothing ever answers — `HTTP 000`, indistinguishable from a de
 
 The GitHub `ubuntu-latest` runner ships **Node 22.23.1 and npm 10.9.8** preinstalled.
 
-Running `dotnet build` directly on it would succeed whether or not JsxCore needed Node —
+Running `dotnet build` directly on it would succeed whether or not JsxCore needed Node,
 exactly the problem that made the claim untestable on my own machine. So every .NET step
 in CI runs inside `scripts/Dockerfile.verify`, which hard-fails if `node` or `npm` are
 present, and the workflow asserts it explicitly before doing anything else.
 
 The upstream workflow also had to go: `actions/checkout@v2` and `setup-dotnet@v1` are both
 deprecated and now fail, which would have put a permanent red X on a repo people reach from
-a blog post. Its `dotnet test` step is folded into the new one — worth keeping, because
+a blog post. Its `dotnet test` step is folded into the new one, worth keeping, because
 Equinox ships 7 architecture tests enforcing layer boundaries and this project deliberately
 edited the infrastructure layer twice. They still pass.
 
@@ -152,6 +152,6 @@ CI green end to end: Node-free verification, 7 architecture tests, 15 developmen
 9 production smoke checks, image published to `ghcr.io` tagged with both the commit SHA and
 `latest`.
 
-Deploying by immutable SHA is deliberate — it makes the rollout idempotent and makes
+Deploying by immutable SHA is deliberate. It makes the rollout idempotent and makes
 rollback the same call with the previous tag, rather than hoping `:latest` points somewhere
 sane.

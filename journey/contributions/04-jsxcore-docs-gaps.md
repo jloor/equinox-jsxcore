@@ -1,15 +1,15 @@
 ## Title
 
-Docs: two things that cost me hours — model casing, and antiforgery in MVC forms
+Docs: two things that cost me hours, model casing and antiforgery in MVC forms
 
 ## Body
 
 I migrated a real ASP.NET MVC app ([Equinox
-Project](https://github.com/EduardoPires/EquinoxProject)) from Razor to JsxCore — every
+Project](https://github.com/EduardoPires/EquinoxProject)) from Razor to JsxCore, and every
 view, deployed and running. The docs are genuinely good; these are the two places I lost
 the most time, offered in case they are worth a paragraph each.
 
-Happy to send a PR for either or both — `CONTRIBUTING.md` says to ask first, so I'm asking.
+Happy to send a PR for either or both. `CONTRIBUTING.md` says to ask first, so I'm asking.
 
 ---
 
@@ -43,8 +43,8 @@ The second half is easy to miss too, because both conventions appear in one line
 <input name="Name" value={model.name} />
 ```
 
-The **attribute** stays PascalCase — ASP.NET model binding reads it on POST. The **model
-property** is camelCase — that is JSON arriving from the server. Two mechanisms, two
+The **attribute** stays PascalCase, because ASP.NET model binding reads it on POST. The
+**model property** is camelCase, because that is JSON arriving from the server. Two mechanisms, two
 conventions, adjacent.
 
 ---
@@ -89,14 +89,14 @@ POST without token                     ->  400
 Worth stating explicitly that a view using this **must** be server-rendered, since globals
 are a server-pass feature. That coupling is obvious once you know it and invisible before.
 
-The same pattern covers the other Razor request-state helpers — `asp-validation-for` and
+The same pattern covers the other Razor request-state helpers, `asp-validation-for` and
 `asp-validation-summary` need `ModelState`, which lives on the `ActionContext` rather than
 the `HttpContext`, so it needs `IActionContextAccessor` registered as well. A short
 "porting Razor helpers" table would cover all of it in one place.
 
 ---
 
-Thanks for the project. The no-Node claim held up completely — I verified it in a container
+Thanks for the project. The no-Node claim held up completely. I verified it in a container
 with `node`, `npm`, `npx`, `yarn` and `pnpm` all absent, asserted in CI on every build,
 because the GitHub runner ships Node 22 and building there would have "proved" it either
 way.

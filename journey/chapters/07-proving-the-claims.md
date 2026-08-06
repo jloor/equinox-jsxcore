@@ -1,4 +1,4 @@
-# Chapter 7 — Proving the claims
+# Chapter 7: Proving the claims
 
 *2026-08-06. The migration was finished, deployed, and green. It proved almost nothing.*
 
@@ -17,7 +17,7 @@ Worse, the honest scorecard of the migration looked like this:
 | `[DisplayName("E-mail")]` | a string literal that silently drifts |
 | `<vc:summary />` | cannot invoke ViewComponents from TSX at all |
 
-Six things that got *worse*. A fair reader concludes Razor won, and they would be right —
+Six things that got *worse*. A fair reader concludes Razor won, and they would be right,
 because a like-for-like port of a server-rendered CRUD app is precisely the case Razor
 already handles well.
 
@@ -47,7 +47,7 @@ That is the finding, and it repeated so precisely it stopped being a coincidence
 
 ## 1. Deploys were verified by liveness, not freshness
 
-Not a JsxCore claim — a defect in the thing that verifies all the others.
+Not a JsxCore claim, but a defect in the thing that verifies all the others.
 
 The post-deploy check asserted that a nav link was present on the live site. It passed. But
 the outgoing container also serves that nav link, so the check proved "*a* build is
@@ -81,7 +81,7 @@ so the step that certifies deployment had to be trustworthy before any of it mea
 I described this as a one-line config change. It was three interacting things.
 
 **The default convention scans only the web assembly.** `CustomerViewModel` lives in
-`Equinox.Application`, so it was never generated — which is exactly why the migration had
+`Equinox.Application`, so it was never generated, which is exactly why the migration had
 hand-written a TypeScript interface for it. The feature that prevents drift was, by
 default, not covering the one model the application actually uses.
 
@@ -90,7 +90,7 @@ default, not covering the one model the application actually uses.
 > `AutoExport`, a naming policy on `JsonSerializerOptions`, `EnumsAsStrings` and the rest
 > are set in application code that has not run, so the build generates with the defaults.
 
-Generation runs twice — at build with defaults, at startup with your config. There is no
+Generation runs twice: at build with defaults, at startup with your config. There is no
 MSBuild property to widen the build-time pass, and `dotnet:types/...` resolves into `obj/`,
 which the build regenerates with defaults and git ignores. The committed runtime output has
 to be imported by path instead.
@@ -126,7 +126,7 @@ for (var i = 0; i < data.length; i++) {
     html += "<tr><td>" + c.action + "</td><td>" + c.timestamp + "</td>";
 ```
 
-String-concatenated HTML, untyped, server data interpolated straight into markup — inside a
+String-concatenated HTML, untyped, server data interpolated straight into markup, inside a
 project whose entire premise is typed views. It is now a Preact component typed against the
 generated `CustomerHistoryData`, and the page proves the claim in a single response:
 
@@ -139,8 +139,8 @@ Three things were not obvious:
 
 **`ServerAndClient` has no file directive.** `"use server"` and `"use client"` exist; the
 both-modes case is deliberately per-response, because the same view is often server-rendered
-publicly and client-only behind a login. It is normally set in the controller — which this
-project may not modify — so a result filter sets it instead, for one action only.
+publicly and client-only behind a login. It is normally set in the controller, which this
+project may not modify, so a result filter sets it instead, for one action only.
 
 **The component runs twice, and .NET globals are a server-pass feature.** `Layout` reads
 `User` and `Antiforgery`, so the client pass would throw. Worse than throwing would be
@@ -173,7 +173,7 @@ That last one is not a preference:
 Jint.ScriptPreparationException: Script nesting exceeds maximum depth of 256 levels
 ```
 
-`options.ServerRendering.MaxRecursionDepth` does not raise it — setting it to 4096 produced
+`options.ServerRendering.MaxRecursionDepth` does not raise it. Setting it to 4096 produced
 the identical error, because that guards *runtime recursion* and this is *script
 preparation*. So highlight.js is dynamically imported behind an `isServerRender()` guard.
 
@@ -187,8 +187,8 @@ on the server, `highlight.js` proves they reach the browser as ES modules with n
 
 **And the first `dotnet publish` on a clean checkout omits `node_modules`.** The docs are
 explicit that "everything in your `dependencies` is copied into the publish output
-automatically", and on a second publish it is. But on a *clean* checkout — which is exactly
-what CI and a Docker build are — the packages are restored during that publish and end up
+automatically", and on a second publish it is. But on a *clean* checkout, which is exactly
+what CI and a Docker build are, the packages are restored during that publish and end up
 absent from its output:
 
 | | `node_modules` in publish output |
@@ -228,7 +228,7 @@ Final scorecard:
 checking warned instead of failing. The both-modes render was off. The packages were never
 installed. In each case the default produced something that looked like it was working.
 
-That is not a complaint about JsxCore — the defaults are reasonable for the common case, and
+That is not a complaint about JsxCore. The defaults are reasonable for the common case, and
 the docs are unusually candid about the seams, including the line that explains the whole
 type-generation problem. It is an observation about verifying claims: **"it built and the
 page loaded" is compatible with almost every feature being inactive.**
@@ -236,14 +236,14 @@ page loaded" is compatible with almost every feature being inactive.**
 The other thing that kept happening is more uncomfortable. Three separate checks in this
 project passed when they should have failed:
 
-- a smoke test using `curl --max-file-size` — not a real flag — so curl errored, `grep`
+- a smoke test using `curl --max-file-size`, which is not a real flag, so curl errored, `grep`
   received empty input, found no problem, and reported PASS
 - a deploy check asserting liveness while claiming freshness
 - a throwaway shell check that printed "server-rendered" against an empty response
 
 All three had the same shape: **the check could not distinguish "the thing is fine" from "I
 failed to look".** That is the failure mode worth designing against, and it is why every
-check added in this chapter fails loudly when it cannot evaluate its own subject — including
+check added in this chapter fails loudly when it cannot evaluate its own subject, including
 the Bunny guard, which reports `UNKNOWN` and exits non-zero rather than assuming a default
 is fine.
 
@@ -268,7 +268,7 @@ push returns the run that finished before it.
 Three false passes in one command, in the space of about thirty seconds, in a check
 verifying a chapter about false passes.
 
-The bug was real and is fixed — an unknown chapter now returns `404`, and there is a check
+The bug was real and is fixed. An unknown chapter now returns `404`, and there is a check
 asserting it. But the more useful lesson is that knowing about this failure mode does not
 confer immunity from it. The only thing that helps is the boring one: compare against
 something that can actually differ. The deployed SHA versus the expected SHA. Rendered

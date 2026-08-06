@@ -1,7 +1,7 @@
 # Draft: issue for EduardoPires/EquinoxProject
 
 **Type:** bug report, with a PR to follow
-**Status:** DRAFT — not posted
+**Status:** DRAFT, not posted
 **Verified on:** `master` @ `fde9a95`, .NET SDK 9.0.316, unmodified clone
 
 ---
@@ -14,7 +14,7 @@ Every request returns HTTP 500 when Facebook/Google credentials aren't configure
 
 `AddSocialAuthenticationSupport` registers the Facebook and Google handlers
 unconditionally, so their options are always validated. Because remote authentication
-options are validated **lazily — on first use rather than at startup** — an app with no
+options are validated **lazily, on first use rather than at startup**, so an app with no
 social credentials starts perfectly cleanly and then fails every single request.
 
 `src/Equinox.Infra.CrossCutting.Identity/Configuration/AspNetIdentityConfig.cs`:
@@ -35,8 +35,8 @@ builder.Services.AddAuthentication()
 
 ### Why this affects real deployments
 
-`appsettings.json` — the base file, used by **Production** and any environment without its
-own overrides — has no `Authentication` section at all:
+`appsettings.json`, the base file used by **Production** and any environment without its
+own overrides, has no `Authentication` section at all:
 
 | File | `Authentication` section |
 |---|---|
@@ -82,7 +82,7 @@ fail: Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware[3]
 ### Reproduction
 
 Isolated from the database configuration by running in Development (so SQLite is used) and
-removing only the `Authentication` section — which is exactly the state of `appsettings.json`:
+removing only the `Authentication` section, which is exactly the state of `appsettings.json`:
 
 ```bash
 git clone --depth 1 https://github.com/EduardoPires/EquinoxProject.git
@@ -143,7 +143,7 @@ if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(goo
 An app shouldn't hard-fail because an optional feature is unconfigured, and the current
 behaviour is especially awkward because the login page still advertises the providers.
 
-Happy to open a PR with this if you'd like it — I have it running against a deployed
+Happy to open a PR with this if you'd like it. I have it running against a deployed
 instance.
 
 ---
@@ -154,11 +154,11 @@ instance.
   reads worse than asking.
 - Deliberately **not** mentioned: the SQL Server/SQLite provider split
   (`DatabaseConfig.cs` and `AspNetIdentityConfig.cs` both branching on `IsDevelopment()`).
-  That is arguably intentional — they expect SQL Server in production — and mixing it in
+  That is arguably intentional, since they expect SQL Server in production, and mixing it in
   would muddy a clear, unambiguous bug. Separate issue if it's worth raising at all.
 - The repro isolates social auth from the database on purpose. Running `master` directly in
   a non-Development environment crashes *earlier*, on
   `PendingModelChangesWarning: The model for context 'EquinoxContext' has pending changes`,
   which is the provider mismatch and would obscure this bug entirely.
-- Do not claim "affects everyone" — SQL Server deployments get past the database and then
+- Do not claim "affects everyone". SQL Server deployments get past the database and then
   hit this; SQLite-in-production deployments never get that far.

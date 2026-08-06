@@ -1,12 +1,12 @@
 # Draft: comment on EduardoPires/EquinoxProject#218
 
 **Target:** https://github.com/EduardoPires/EquinoxProject/pull/218
-**Type:** comment on an existing (stalled) Dependabot PR — not a competing PR
-**Status:** DRAFT — not posted
+**Type:** comment on an existing (stalled) Dependabot PR, not a competing PR
+**Status:** DRAFT, not posted
 
 ---
 
-Heads up that this bump doesn't fully clear the advisories — `9.0.15` is the first patched
+Heads up that this bump doesn't fully clear the advisories. `9.0.15` is the first patched
 version for one of them, but five others apply to that release too.
 
 Measured against `master` (`fde9a95`) by restoring `Equinox.Infra.Data` and collecting the
@@ -29,7 +29,7 @@ GHSA-mmjf-rqrv-855v
 ```
 
 Bumping the same two packages to `9.0.18` restores cleanly and reports zero advisories.
-`System.Formats.Asn1` does **not** need to change — I checked, since `Xml` and `Pkcs` have
+`System.Formats.Asn1` does **not** need to change. I checked, since `Xml` and `Pkcs` have
 a version constraint between them:
 
 ```diff
@@ -48,7 +48,7 @@ error NU1605: Detected package downgrade: System.Security.Cryptography.Pkcs from
   Equinox.Infra.Data -> System.Security.Cryptography.Pkcs (>= 9.0.3)
 ```
 
-Both have to move together, which this PR already does — it just needs the higher version.
+Both have to move together, which this PR already does. It just needs the higher version.
 
 To reproduce:
 
@@ -62,12 +62,12 @@ dotnet restore src/Equinox.Infra.Data/Equinox.Infra.Data.csproj 2>&1 | grep -oP 
 # no output at 9.0.18; five GHSA ids at 9.0.15
 ```
 
-Separately — and probably why this went unnoticed — CI on `master` currently can't run:
+Separately, and probably why this went unnoticed, CI on `master` currently can't run:
 `.github/workflows/dotnet-core.yml` uses `actions/checkout@v2` and `actions/setup-dotnet@v1`,
 both of which now fail on GitHub-hosted runners. Happy to open a separate PR bumping those
 to `@v4` if that's useful.
 
-Thanks for the project — I've been using it as the base for a view-engine migration
+Thanks for the project. I've been using it as the base for a view-engine migration
 experiment and it's been a genuinely good reference codebase to work in.
 
 ---
@@ -77,6 +77,6 @@ experiment and it's been a genuinely good reference codebase to work in.
 - Tone: additive to Dependabot's PR, not a competing one. The maintainer's cheapest action
   is to retarget the existing PR, so make that the obvious next step.
 - Do **not** open a rival PR first. If asked, offer one.
-- The CI observation is offered, not demanded — it's a separate concern and shouldn't
+- The CI observation is offered, not demanded. It's a separate concern and shouldn't
   dilute the security point.
 - Verified on `fde9a95`, .NET SDK 9.0.316, in `mcr.microsoft.com/dotnet/sdk:9.0`.

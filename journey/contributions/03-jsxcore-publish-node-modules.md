@@ -51,7 +51,7 @@ already existed when publish started.
 ### Why it bites
 
 A Dockerfile or CI job is a clean checkout by definition, so it always hits the first case.
-The build succeeds, the image builds, the app starts — and every view importing a package
+The build succeeds, the image builds, the app starts, and every view importing a package
 returns 500:
 
 ```
@@ -60,7 +60,7 @@ JsxCore.JsxRenderException: JsxCore failed to server-render 'Journey/Chapter'.
       server rendering. It was not found in node_modules. Searched:
 ```
 
-The startup warning is genuinely helpful and is how I found it — thank you for writing it:
+The startup warning is genuinely helpful and is how I found it. Thank you for writing it:
 
 > JsxCore: package.json declares marked, dayjs, highlight.js, which are not installed in
 > /app. A view importing one will fail to render. Build again to restore them.

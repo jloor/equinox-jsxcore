@@ -1,4 +1,4 @@
-# Chapter 5 — Converting the views
+# Chapter 5: Converting the views
 
 *2026-08-06. The part the original plan thought was the whole project.*
 
@@ -43,7 +43,7 @@ declare namespace Equinox.UI.Web.Models {
 
 `CustomerViewModel.Name` arrives as `model.name`. `BirthDate` as `model.birthDate`.
 
-This is the same thing that made me declare ViewComponents broken back in chapter 2 — I
+This is the same thing that made me declare ViewComponents broken back in chapter 2. I
 had written `model.Count` against a payload containing `count`. That earlier verdict is
 corrected there. ViewComponents work.
 
@@ -57,8 +57,8 @@ There is a second half to it, which is easy to miss:
 <input name="Name" value={model.name} />
 ```
 
-The **attribute** stays PascalCase — ASP.NET model binding reads it on POST. The **model
-property** is camelCase — that's JSON arriving from the server. Two different mechanisms,
+The **attribute** stays PascalCase, because ASP.NET model binding reads it on POST. The
+**model property** is camelCase, because that's JSON arriving from the server. Two different mechanisms,
 two different conventions, in the same line.
 
 ---
@@ -73,21 +73,21 @@ two different conventions, in the same line.
 | `@Html.AntiForgeryToken()` | `<AntiforgeryField />` reading an `Antiforgery` global |
 | `asp-validation-summary` | `<ValidationSummary />` reading a `Validation` global |
 | `asp-validation-for="Name"` | `<FieldErrors field="Name" />` |
-| `<vc:summary />` | a component — TSX cannot invoke ViewComponents |
+| `<vc:summary />` | a component, since TSX cannot invoke ViewComponents |
 | `@Html.DisplayNameFor(m => m.Name)` | a string literal |
 | `@Html.DisplayFor` + `[DisplayFormat]` | `formatDate()` helper |
 | `@section scripts` | inline `<script>` at point of use |
 | `asp-action="Edit" asp-route-id="@item.Id"` | `` href={`/customer-management/edit-customer/${item.id}`} `` |
 | `@ViewData["Title"]` | `export const head = { title: ... }` |
 
-Three of those needed .NET globals — request state Razor reached through `@inject`,
+Three of those needed .NET globals, which is request state Razor reached through `@inject`,
 `ModelState`, and tag helpers, none of which JsxCore has. **`ModelState` doesn't live on
 `HttpContext`**, so exposing validation errors meant registering `IActionContextAccessor`
 as well.
 
 The one with no equivalent at all is `[DisplayName("E-mail")]`. JsxCore's generated types
 carry property *names* but not display *metadata*, so every label became a literal. Change
-the attribute in C# now and the view silently keeps the old text — Razor would have
+the attribute in C# now and the view silently keeps the old text. Razor would have
 followed it automatically.
 
 ---
@@ -104,7 +104,7 @@ moved on. The oracle disagreed:
 
 Real, and mine: `ModelStateDictionary?` in a project with `<Nullable>disable</Nullable>`.
 My grep had missed it; the check did not. Had the baseline still been 16 from before the
-security patch, this would have hidden inside the noise — patching the CVEs in D11 is what
+security patch, this would have hidden inside the noise. Patching the CVEs in D11 is what
 made a single new warning visible at all.
 
 **And it caught itself being wrong.** It flagged `Shared/Layout.tsx` for missing
@@ -121,13 +121,13 @@ The original plan listed view conversion as seven steps, simplest first, startin
 
 Converting `Home/Index` actually required: the layout component, the login partial, two
 .NET globals, head-content configuration, and body-script configuration. The spec had
-`_Layout` as step **4.2** — *after* the view that cannot render without it.
+`_Layout` as step **4.2**, *after* the view that cannot render without it.
 
 The ordering only looks wrong once you know JsxCore has no layout mechanism. That was
 knowable in about thirty minutes of reading the docs, and was not in the plan.
 
 ## Cost of coexistence
 
-Two layouts now exist — `_Layout.cshtml` for Identity's Razor pages, `Layout.tsx` for
+Two layouts now exist: `_Layout.cshtml` for Identity's Razor pages, `Layout.tsx` for
 everything else. They render the same chrome today and will drift. That is the honest
 price of keeping Identity on Razor, and it is a maintenance cost, not a one-time one.

@@ -1,4 +1,4 @@
-# Chapter 3 — The baseline nobody had verified
+# Chapter 3: The baseline nobody had verified
 
 *2026-08-05. Unmodified Equinox, .NET 9 container, before any migration work.*
 
@@ -8,7 +8,7 @@ be free. Running them turned up four things.
 
 ---
 
-## 1. It builds — but not to the spec's standard
+## 1. It builds, but not to the spec's standard
 
 ```
 Build succeeded.
@@ -17,7 +17,7 @@ Build succeeded.
 Time Elapsed 00:00:33.62
 ```
 
-All 16 are `NU1903` against the same package — but they are **not the same warning**. They
+All 16 are `NU1903` against the same package, but they are **not the same warning**. They
 are **8 distinct high-severity advisories**, each reported twice (once for the project,
 once for the solution):
 
@@ -29,7 +29,7 @@ GHSA-37gx-xxp4-5rgx    GHSA-23rf-6693-g89p
 ```
 
 All against `System.Security.Cryptography.Xml` **9.0.3**. One of them, GHSA-w3x6-4m5h-cxqf,
-is *CVE-2026-26171 – .NET Denial of Service Vulnerability*.
+is *CVE-2026-26171, .NET Denial of Service Vulnerability*.
 
 It is a **direct** `PackageReference` in `Equinox.Infra.Data`, not something dragged in
 transitively. The advisory lists `9.0.15` as the first patched version in the 9.x line;
@@ -43,7 +43,7 @@ layer."* `Equinox.Infra.Data` **is** the infrastructure layer.
 Taken literally, the rules forbid patching 8 known high-severity vulnerabilities in an
 application about to be deployed to the public internet and linked from a blog post.
 
-The spec's own success criterion — *"0 warnings"* — cannot be met without breaking the
+The spec's own success criterion, *"0 warnings"*, cannot be met without breaking the
 spec's own constraint. That's the second internal contradiction found, after the
 `.cshtml`/Identity one.
 
@@ -58,7 +58,7 @@ Logged as a decision rather than silently resolved: see D11.
 ```
 
 The app boots, `DbMigrationHelpers.EnsureSeedData()` runs, and `EquinoxProject.db` appears.
-Phase 2 of the spec — four steps of SQL Server → SQLite migration — is **already complete
+Phase 2 of the spec, four steps of SQL Server → SQLite migration, is **already complete
 for Development**.
 
 `appsettings.json` still has no connection string at all, so Production has nothing to
@@ -107,7 +107,7 @@ Verified live:
 /Identity/Account/Register          HTTP 200
 ```
 
-The spec's criterion — *"Customer CRUD works end-to-end in the browser"* — silently
+The spec's criterion, *"Customer CRUD works end-to-end in the browser"*, silently
 requires a registered, logged-in user. Nothing in the plan mentions authentication.
 
 ### Two knock-on effects
@@ -126,7 +126,7 @@ would have made the success criterion untestable.
 **And it fixes a problem I'd expected to have.** Earlier the plan assumed public
 unauthenticated CRUD, with the risk that a demo link would get filled with junk by visitor
 #50. It turns out anonymous users can read but not write. The abuse surface is much smaller
-than assumed — writes need an account.
+than assumed, because writes need an account.
 
 ---
 
@@ -146,7 +146,7 @@ podman run -v nuget-cache:/root/.nuget/packages ...
 
 Worth recording because the error message points confidently at a missing package and says
 nothing about containers. An automated loop would very plausibly have "fixed" this by
-pinning package versions or editing csproj files — chasing a phantom.
+pinning package versions or editing csproj files, chasing a phantom.
 
 ---
 

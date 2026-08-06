@@ -9,7 +9,7 @@ repo https://github.com/jloor/equinox-jsxcore
 
 ---
 
-## Draft C — leads with the why (current preference)
+## Draft C: leads with the why (current preference)
 
 I wanted to find out what I could actually build in a stack I'm not an expert in.
 
@@ -57,7 +57,7 @@ smaller than it looks, and it's mostly filled by being willing to check things.
 
 ---
 
-## Draft A — technical framing (earlier version)
+## Draft A: technical framing (earlier version)
 
 I had a detailed plan to migrate a .NET reference app to a view engine released three weeks
 ago. Before running a single step, I had it verified against the actual repository.
@@ -128,7 +128,7 @@ in London. Both MIT, both worth a look, and both codebases were a pleasure to wo
 
 ---
 
-## Draft B — shorter, if A feels long for the feed
+## Draft B: shorter, if A feels long for the feed
 
 I had a detailed plan to migrate a .NET reference app to a view engine released three weeks
 ago. Before running a single step, I had it verified against the actual repository.
@@ -162,7 +162,7 @@ David Whitney's. Both MIT.
 
 ---
 
-## Follow-up comment — all the links
+## Follow-up comment: all the links
 
 Post this as the first comment. Links in the body reportedly get less reach than links in a
 comment, so Draft C keeps one (the demo) and everything else lives here.
