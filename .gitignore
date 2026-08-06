@@ -240,3 +240,8 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
+
+# SQLite database (created at runtime by DbMigrationHelpers.EnsureSeedData)
+*.db
+*.db-shm
+*.db-wal
