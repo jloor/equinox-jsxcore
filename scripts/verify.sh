@@ -55,10 +55,16 @@ fi
 # D8: every converted view must declare "use server" as its FIRST statement.
 # Forgetting it does not error - the page renders blank to crawlers and no-JS
 # clients while looking correct in a browser. Highest-risk silent failure found.
+#
+# Applies to VIEWS only, not shared components. JsxCore consults the directive on
+# the view the endpoint named and nothing else: "A directive at the top of
+# Shared/Card.tsx says nothing about the pages that import it." The docs give the
+# distinction - "Only the view needs a default export" - so that is the test.
 missing=""
 count=0
 while IFS= read -r f; do
     [[ -z "$f" ]] && continue
+    grep -qE '^\s*export\s+default' "$f" || continue   # component, not a view
     count=$((count + 1))
     first="$(grep -vE '^\s*(//|/\*|\*|$)' "$f" | head -1)"
     [[ "$first" =~ ^\"use\ server\"\;?$|^\'use\ server\'\;?$ ]] || missing="$missing ${f#$VIEWS/}"

@@ -17,21 +17,37 @@ Build succeeded.
 Time Elapsed 00:00:33.62
 ```
 
-All 16 are the same warning:
+All 16 are `NU1903` against the same package — but they are **not the same warning**. They
+are **8 distinct high-severity advisories**, each reported twice (once for the project,
+once for the solution):
 
 ```
-warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.3 has a known
-high severity vulnerability
-https://github.com/advisories/GHSA-w3x6-4m5h-cxqf
+GHSA-w3x6-4m5h-cxqf    GHSA-mmjf-rqrv-855v
+GHSA-g8r8-53c2-pm3f    GHSA-cvvh-rhrc-wg4q
+GHSA-8q5v-6pqq-x66h    GHSA-6588-8gv4-xfgh
+GHSA-37gx-xxp4-5rgx    GHSA-23rf-6693-g89p
 ```
 
-The spec's success criterion is *"`dotnet build` passes with 0 errors and 0 warnings."*
-**Unmodified, untouched Equinox does not meet it** — and the only way to reach zero is to
-upgrade a transitive dependency or suppress the warning, neither of which is view-engine work.
+All against `System.Security.Cryptography.Xml` **9.0.3**. One of them, GHSA-w3x6-4m5h-cxqf,
+is *CVE-2026-26171 – .NET Denial of Service Vulnerability*.
 
-More importantly: this is a **high-severity vulnerability in something about to be deployed
-publicly**. The spec never mentions it. Nine spec errors were about being wrong; this is
-about not looking.
+It is a **direct** `PackageReference` in `Equinox.Infra.Data`, not something dragged in
+transitively. The advisory lists `9.0.15` as the first patched version in the 9.x line;
+the current release is `9.0.18`. So this is a one-line version bump, not a redesign.
+
+### And that collides with a project constraint
+
+The constraints say: *"Do NOT modify the domain layer, application layer, or infrastructure
+layer."* `Equinox.Infra.Data` **is** the infrastructure layer.
+
+Taken literally, the rules forbid patching 8 known high-severity vulnerabilities in an
+application about to be deployed to the public internet and linked from a blog post.
+
+The spec's own success criterion — *"0 warnings"* — cannot be met without breaking the
+spec's own constraint. That's the second internal contradiction found, after the
+`.cshtml`/Identity one.
+
+Logged as a decision rather than silently resolved: see D11.
 
 ## 2. The database swap was already done
 

@@ -1,0 +1,57 @@
+"use server";
+
+import { Layout } from "../Shared/Layout.tsx";
+
+/** Replaces @{ ViewData["Title"] = "Welcome"; } - the head export is JsxCore's equivalent. */
+export const head = { title: "Welcome - Equinox Project" };
+
+export default function Index() {
+    return (
+        <Layout>
+            <div>
+                <img src="/images/banner1.svg" alt="ASP.NET" class="img-responsive" />
+                <br />
+                <br />
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <h2>Design</h2>
+                    <ul>
+                        <li>Full architecture with responsibility separation concerns, SOLID and Clean Code</li>
+                        <li>DDD Concepts - Layers and Domain Model Pattern</li>
+                        <li>CQRS - Command Query Responsibility Segregation</li>
+                        <li>Event Sourcing</li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h2>Technologies</h2>
+                    <ul>
+                        <li>.NET 9.0</li>
+                        <li>ASP.NET MVC 9.0</li>
+                        <li>ASP.NET WebAPI 9.0</li>
+                        <li>ASP.NET Identity 9.0</li>
+                        <li>EF Core 9.0</li>
+                        <li>JsxCore (TSX views)</li>
+                        <li>AutoMapper</li>
+                        <li>FluentValidator</li>
+                        <li>MediatR</li>
+                        <li>Swagger UI</li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h2>Run</h2>
+                    <ul>
+                        <li>
+                            <a href="https://github.com/jloor/equinox-jsxcore" target="_blank">
+                                See the migration
+                            </a>
+                        </li>
+                        <li>Run anywhere</li>
+                        <li>Scale on the cloud</li>
+                    </ul>
+                </div>
+            </div>
+        </Layout>
+    );
+}
