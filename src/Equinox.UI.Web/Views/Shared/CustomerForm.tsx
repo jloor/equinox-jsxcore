@@ -1,19 +1,21 @@
 import { Antiforgery, Validation } from "dotnet:globals";
+import type Equinox from "@/generated/types.d.ts";
 
 /**
- * Models arrive serialised to camelCase, following the app's JsonSerializerOptions
- * rather than the .NET property names. CustomerViewModel's Name/Email/BirthDate become
- * name/email/birthDate here. Getting this wrong renders nothing and errors nothing.
+ * Generated from C#, not hand-written.
  *
- * Form field NAMES stay PascalCase - those are bound by ASP.NET model binding on POST,
- * which is a different mechanism than the JSON the view receives.
+ * This was previously a hand-maintained interface, because the default convention scans
+ * only the web assembly and CustomerViewModel lives in Equinox.Application - so it was
+ * never generated and the views had nothing to import. That is precisely the drift this
+ * feature prevents: rename a property in C# and a hand-written interface keeps compiling
+ * against a shape that no longer exists.
+ *
+ * Note the casing. Model properties arrive camelCase (name, birthDate) because generation
+ * follows the app's JsonSerializerOptions rather than the .NET names. Form field NAMES
+ * stay PascalCase - those are read by ASP.NET model binding on POST, which is a different
+ * mechanism entirely. Both conventions appear in the same line of JSX.
  */
-export interface Customer {
-    id: string;
-    name: string;
-    email: string;
-    birthDate: string;
-}
+export type Customer = Equinox.Application.ViewModels.CustomerViewModel;
 
 /** Replaces <vc:summary /> - the Summary ViewComponent Equinox embeds in Create/Edit/Delete. */
 export function ValidationSummary() {

@@ -2,6 +2,12 @@
 	<PropertyGroup>
 		<TargetFramework>net9.0</TargetFramework>
 		<Nullable>disable</Nullable>
+
+		<!-- TypeScript errors fail the build instead of warning.
+		     Without this, a .tsx referencing a property that no longer exists in C# emits
+		     TS2339 and the build still succeeds - which makes "the model and the view cannot
+		     drift" advisory rather than true. -->
+		<JsxCoreTypeChecking>error</JsxCoreTypeChecking>
 		<UserSecretsId>aspnet-Equinox.UI.Web-61A38C1A-B3EE-4175-AD27-CD2A22786741</UserSecretsId>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>

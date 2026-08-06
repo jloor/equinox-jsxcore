@@ -90,6 +90,31 @@ else
     emit tsx-use-server FAIL "missing \"use server\":$missing"
 fi
 
+# Generated model types must be committed and must cover CustomerViewModel.
+#
+# Type generation runs twice: at build (with DEFAULT config, scanning only the web
+# assembly) and at application startup (with the configured AutoExport). CustomerViewModel
+# lives in Equinox.Application, so the build-time pass never sees it - the committed
+# runtime output under Views/generated is what the views actually compile against.
+#
+# If that file goes stale or missing, the views silently lose their types rather than
+# failing, so this asserts it exists and contains the model.
+GENERATED="$VIEWS/generated/types.d.ts"
+if [[ ! -f "$GENERATED" ]]; then
+    emit generated-types FAIL "no committed types at Views/generated/types.d.ts - views would lose C# type safety"
+elif ! grep -q "interface CustomerViewModel" "$GENERATED"; then
+    emit generated-types FAIL "committed types are missing CustomerViewModel: $(grep -oE 'interface [A-Za-z]+' "$GENERATED" | tr '\n' ' ')"
+else
+    emit generated-types PASS "CustomerViewModel generated from C# and committed"
+fi
+
+# TypeScript errors must be fatal, or "the model and the view cannot drift" is advisory.
+if grep -q "<JsxCoreTypeChecking>error</JsxCoreTypeChecking>" "$WEB/Equinox.UI.Web.csproj"; then
+    emit typecheck-fatal PASS "JsxCoreTypeChecking=error - C#/TSX drift fails the build"
+else
+    emit typecheck-fatal FAIL "JsxCoreTypeChecking is not 'error'; TS2339 would only warn"
+fi
+
 # Every Razor view that is NOT deliberately retained should have a .tsx counterpart.
 for v in $(find "$VIEWS" -name '*.cshtml' 2>/dev/null | grep -vE "$RAZOR_ALLOWED"); do
     [[ -f "${v%.cshtml}.tsx" ]] || emit tsx-parity FAIL "no .tsx for ${v#$VIEWS/}"

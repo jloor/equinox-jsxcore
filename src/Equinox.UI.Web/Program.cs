@@ -3,6 +3,7 @@ using Equinox.Infra.CrossCutting.Identity.Configuration;
 using Equinox.UI.Web.ViewServices;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using JsxCore.Hosting;
+using JsxCore.TypeScript;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +33,29 @@ builder.AddJsxCore(options =>
     options.Globals.Register<CurrentUser>("User");
     options.Globals.Register<AntiforgeryTokens>("Antiforgery");
     options.Globals.Register<ValidationState>("Validation");
+
+    // By default the convention scans only this assembly, so it generated
+    // Equinox.UI.Web.Models.ErrorViewModel and nothing else - CustomerViewModel lives in
+    // Equinox.Application. That is why the Customer views originally declared their own
+    // hand-written TypeScript interface, which is exactly the drift this feature exists to
+    // prevent: the C# could change and the .tsx would keep compiling against a stale shape.
+    //
+    // Narrower than TypesFrom.AllUserCode, which the docs note also picks up services and
+    // controllers.
+    options.TypeDefinitions.AutoExport =
+          TypesFrom.NamespaceContaining<Equinox.Application.ViewModels.CustomerViewModel>()
+        + TypesFrom.NamespaceContaining<Equinox.UI.Web.Models.ErrorViewModel>();
+
+    // Written into the source tree and committed, deliberately.
+    //
+    // Type generation runs twice: at build, and at application startup. The build "cannot
+    // see your configuration" - AutoExport is application code that has not run yet - so a
+    // build-only answer is the DEFAULT convention, which scans this assembly alone and
+    // therefore misses CustomerViewModel entirely. That produces types which are correct
+    // on a machine that has run the app and wrong on a fresh clone or in CI.
+    //
+    // Committing the generated output is the documented way to skip that approximation.
+    options.TypeDefinitions.OutputPath = "Views/generated";
 
     options.Document.DefaultTitle = "Equinox Project";
     options.Document.HeadContent = """
