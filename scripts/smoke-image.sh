@@ -104,6 +104,18 @@ else
     emit server-rendered PASS "markup present in root div"
 fi
 
+# /version is what the deploy step polls to tell "the new build is live" from "something
+# is live". If it stops reporting, deploy verification silently degrades to a liveness
+# check - which is exactly the failure this endpoint was added to fix.
+version="$(curl -s --max-time 20 "$BASE/version" | tr -d '[:space:]')"
+if [[ -z "$version" ]]; then
+    emit version-endpoint FAIL "/version returned nothing - deploy verification would fall back to liveness"
+elif [[ -n "${EXPECT_SHA:-}" && "$version" != "$EXPECT_SHA" ]]; then
+    emit version-endpoint FAIL "/version reports '$version', expected '$EXPECT_SHA'"
+else
+    emit version-endpoint PASS "/version reports '$version'"
+fi
+
 # The database has to land on the mounted path, or it vanishes on every restart.
 if $DOCKER exec "$NAME" ls /data/equinox.db >/dev/null 2>&1; then
     emit sqlite-on-volume PASS "/data/equinox.db exists"

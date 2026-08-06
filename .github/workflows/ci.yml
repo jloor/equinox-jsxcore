@@ -81,6 +81,7 @@ jobs:
       - name: Build image
         run: |
           docker build \
+            --build-arg GIT_SHA=${{ github.sha }} \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
             .
@@ -90,6 +91,8 @@ jobs:
       # created, and unconfigured social-auth options threw on every request after a
       # completely clean startup. This runs the real image and fetches real pages.
       - name: Smoke test the built image
+        env:
+          EXPECT_SHA: ${{ github.sha }}
         run: ./scripts/smoke-image.sh ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Push image
@@ -159,23 +162,37 @@ jobs:
         run: |
           URL="${{ vars.BUNNY_APP_URL }}"
           echo "Waiting for $URL to serve the new build..."
-          # Marker comes from Shared/Layout.tsx, so it proves the layout composed and the
-          # view rendered - without pinning page copy, which changes for editorial reasons
-          # and would otherwise fail the deploy for no health-related reason.
+          # Three gates, in order of what they rule out:
+          #   /version == this commit  -> the NEW build is serving, not the outgoing one
+          #   nav link present         -> the layout composed and the view rendered
+          #   seeded customer present  -> the database came up, not just Kestrel
+          #
+          # The SHA gate is the one that matters. A previous version asserted only that a
+          # nav link was present, which the OUTGOING container also served - so CI
+          # reported a green deploy while the site was still showing the platform's
+          # "We're deploying your app!" placeholder. Liveness is not freshness.
           for i in $(seq 1 40); do
-            body="$(curl -sS --max-time 20 "$URL/" || true)"
-            if [[ "$body" == *"/customer-management/list-all"* ]]; then
-              echo "Home page is live."
-              # The seeded customer proves the database came up, not just Kestrel.
-              list="$(curl -sS --max-time 20 "$URL/customer-management/list-all" || true)"
-              if [[ "$list" == *"Eduardo Pires"* ]]; then
-                echo "Customer list is serving seeded data."
-                exit 0
-              fi
-              echo "  [$i] app up, database not ready yet"
-            else
-              echo "  [$i] not ready"
+            served="$(curl -sS --max-time 20 "$URL/version" 2>/dev/null | tr -d '[:space:]' || true)"
+            if [[ "$served" != "${{ github.sha }}" ]]; then
+              echo "  [$i] serving '${served:-<no response>}', want '${{ github.sha }}'"
+              sleep 15
+              continue
             fi
+            echo "New build is serving (${{ github.sha }})."
+
+            body="$(curl -sS --max-time 20 "$URL/" || true)"
+            if [[ "$body" != *"/customer-management/list-all"* ]]; then
+              echo "  [$i] correct build, page not rendering yet"
+              sleep 15
+              continue
+            fi
+
+            list="$(curl -sS --max-time 20 "$URL/customer-management/list-all" || true)"
+            if [[ "$list" == *"Eduardo Pires"* ]]; then
+              echo "Customer list is serving seeded data."
+              exit 0
+            fi
+            echo "  [$i] correct build, database not ready yet"
             sleep 15
           done
           echo "::error::$URL did not serve the expected content within ~10 minutes"

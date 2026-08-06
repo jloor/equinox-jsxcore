@@ -72,6 +72,17 @@ app.UseHttpsRedirection()
 app.MapControllerRoute(name: "default",pattern: "{controller=Home}/{action=Index}/{id?}");
 app.MapRazorPages();
 
+// Reports the commit this image was built from, so a deploy can be verified as "the NEW
+// build is serving" rather than "something is serving".
+//
+// This exists because the previous check asserted a nav link was present - which the
+// OUTGOING container also served. CI reported a successful deploy while the site was
+// still showing the platform's "We're deploying your app!" placeholder. Liveness is not
+// the same as freshness, and only one of them is what a deploy step is claiming.
+app.MapGet("/version", () => Results.Text(
+    Environment.GetEnvironmentVariable("BUILD_SHA") ?? "unknown",
+    "text/plain"));
+
 // Applying migrations and seeding some data
 app.UseDbSeed();
 

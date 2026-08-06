@@ -37,6 +37,11 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
+# Served at /version so a deploy can be verified as "the new build is live", not merely
+# "something responds". Defaults to "unknown" for local builds.
+ARG GIT_SHA=unknown
+ENV BUILD_SHA=$GIT_SHA
+
 # SQLite lives on a mounted volume. On Bunny Magic Containers volumes bind to nodes and
 # can come back empty after a reschedule, so the app must survive an empty disk -
 # DbMigrationHelpers.EnsureSeedData() recreates and reseeds on startup, which is why the
