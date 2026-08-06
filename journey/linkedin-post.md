@@ -164,6 +164,60 @@ David Whitney's. Both MIT.
 
 ---
 
+## Follow-up comment — all the links
+
+Post this as the first comment. Links in the body reportedly get less reach than links in a
+comment, so Draft C keeps one (the demo) and everything else lives here.
+
+```
+Links, for anyone who wants to dig in:
+
+The running app — Equinox with every view converted to TypeScript
+https://equinox-jsxcore.jonathanloor.com
+
+The writeup — 8 chapters, in order, including the parts I got wrong
+https://equinox-jsxcore.jonathanloor.com/journey
+
+Source, including the verification scripts and the CI pipeline
+https://github.com/jloor/equinox-jsxcore
+
+What went back upstream, all with reproductions:
+
+• Equinox — a dependency bump that leaves 5 of 8 high-severity advisories in place
+  https://github.com/EduardoPires/EquinoxProject/pull/218
+
+• Equinox — app returns 500 on every request when optional social-auth credentials
+  aren't configured; startup logs look completely clean
+  https://github.com/EduardoPires/EquinoxProject/issues/220
+
+• JsxCore — first publish on a clean checkout omits node_modules, so CI and container
+  builds always hit the broken case
+  https://github.com/davidwhitney/JsxCore/issues/3
+
+• JsxCore — two docs gaps that cost me the most time
+  https://github.com/davidwhitney/JsxCore/issues/4
+
+The two projects this is built on, both MIT and both worth your time:
+
+Equinox Project by Eduardo Pires — one of the better DDD/CQRS reference codebases out there
+https://github.com/EduardoPires/EquinoxProject
+
+JsxCore by David Whitney — TSX views for ASP.NET Core with no Node and no npm
+https://github.com/davidwhitney/JsxCore
+```
+
+Notes on this comment:
+- Order is deliberate: what I made, then what I gave back, then whose work it stands on.
+  Leading with the upstream issues would read as "look what I found in your code".
+- Each upstream link says what it is in plain terms. A bare issue number under a post that
+  tags both authors invites people to click expecting drama.
+- Linking PR #218 rather than the comment permalink puts the reader on the PR itself,
+  where Dependabot's change and the reasoning sit together.
+- If you would rather not surface the upstream issues publicly at all, cut that whole block.
+  The post still stands without it, and the authors have the reports either way.
+
+---
+
 ## Who to tag
 
 **Eduardo Pires** — Equinox Project
