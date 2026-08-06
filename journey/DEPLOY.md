@@ -32,7 +32,7 @@ Create the app from the existing image. The settings that matter, and why:
 | Regions | **one** | same reason |
 | Volume mount path | `/data` | the image writes `/data/equinox.db` |
 
-### Replicas and regions must be 1
+### Replicas and regions must be 1 — and CI enforces it
 
 This is the one setting that will silently corrupt the demo if it is wrong.
 
@@ -40,20 +40,65 @@ Bunny gives **each pod its own volume**. Their docs are explicit: for "databases
 that expect a single writable disk, run with 1 replica per volume, because running multiple
 replicas of a stateful service could lead to state inconsistency."
 
-With two replicas you get two separate SQLite databases and users see different data
-depending on which pod answers. Nothing errors.
+With two replicas you get **two separate SQLite databases**. Nothing errors, nothing logs.
+Users see different data depending on which pod answers, and it presents as "records
+randomly disappearing."
 
-This disables Bunny's main feature — global edge distribution — which was a known and
-accepted trade (D4).
+Because these are dashboard settings — changeable by hand, at any time, by anyone with
+access — they are checked in CI rather than trusted:
 
-### The volume can come back empty
+```
+scripts/bunny-guard.sh <app-id>
+```
+
+```json
+{"id":"replicas","status":"PASS","detail":"min=1 max=1 (single writer preserved)"}
+{"id":"regions","status":"PASS","detail":"pinned to 1 region"}
+{"id":"volume","status":"PASS","detail":"persistent volume mounted at /data"}
+```
+
+It runs **before** the rollout, so a misconfigured app is never deployed into. It reads:
+
+| Endpoint | Asserts |
+|---|---|
+| `GET /apps/{id}/autoscaling` | min and max replicas are both `1` |
+| `GET /apps/{id}/region-settings` | exactly one region enabled |
+| `GET /apps/{id}/volumes` | a volume is mounted at `/data` |
+
+Base URL `https://api.bunny.net/mc`, header `AccessKey: <api key>`.
+
+It reports `UNKNOWN` and **exits non-zero** if it cannot read a value, rather than assuming
+the default is fine. A check that passes because it could not read the setting is worse
+than no check — that exact bug shipped in an earlier version of the smoke test.
+
+Pinning to one region disables Bunny's main feature, global edge distribution. That was a
+known and accepted trade (D4).
+
+### Persistent storage: verified, and idempotent
+
+The image writes `/data/equinox.db`, so a volume mounted at `/data` gives real persistence.
+Tested by destroying the container and starting a new one against the same volume:
+
+| | customers | users |
+|---|---|---|
+| Run 1, fresh volume | 1 | 1 |
+| *container destroyed, volume kept* | | |
+| Run 2, new container, same volume | **1** | **1** |
+
+Data survived, and seeding did **not** duplicate — `DbMigrationHelpers` guards with
+`if (context.Customers.Any()) return;`.
+
+### The volume can still come back empty
 
 Bunny volumes have no automatic backups or replication, bind to specific nodes, and may
 return a **new empty volume** after a reschedule or hardware failure.
 
-That is survivable here by design (D3): `DbMigrationHelpers.EnsureSeedData()` recreates
-and reseeds the schema on startup. The demo resets; it does not break. Say so in the UI
-rather than pretending otherwise.
+That is survivable by design (D3): an empty disk causes `EnsureSeedData()` to recreate and
+reseed the schema on startup. The demo resets; it does not break. Combined with the
+idempotence above, both states are handled — an existing database is left alone, an empty
+one is rebuilt.
+
+Say so in the UI rather than pretending otherwise.
 
 ## Repository variables and secrets
 

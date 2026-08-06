@@ -119,6 +119,20 @@ jobs:
       vars.BUNNY_APP_ID != ''
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      # Runs BEFORE the rollout, so a misconfigured app is never deployed into.
+      #
+      # Asserts 1 replica, 1 region, and a volume at /data. Bunny gives each pod its own
+      # volume and SQLite is single-writer, so a second replica silently produces a
+      # second database - no error, no log, just users seeing different data depending
+      # on which pod answers. These are dashboard settings, which means they can be
+      # changed by hand at any time; this is what stops that from going unnoticed.
+      - name: Guard single-instance and volume configuration
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+        run: ./scripts/bunny-guard.sh "${{ vars.BUNNY_APP_ID }}"
+
       # Deploys by immutable commit SHA, never :latest. That makes redeploys idempotent
       # and makes rollback the same call with an earlier SHA, rather than depending on
       # where a mutable tag happens to point.
