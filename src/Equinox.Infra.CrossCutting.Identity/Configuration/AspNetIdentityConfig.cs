@@ -39,17 +39,28 @@ namespace Equinox.Infra.CrossCutting.Identity.Configuration
 
         private static WebApplicationBuilder AddIdentityDbContext(this WebApplicationBuilder builder)
         {
-            if (builder.Environment.IsDevelopment())
-            {
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+            // Mirrors Equinox.UI.Web/Configurations/DatabaseConfig.cs. Upstream inferred the
+            // provider from the environment name, which left the Identity context on SQL
+            // Server while the other two contexts ran SQLite. The mismatch surfaced as
+            // "PendingModelChangesWarning: The model for context 'EquinoxIdentityContext'
+            // has pending changes" and crashed the container on startup - a message that
+            // points at migrations rather than at the provider that actually caused it.
+            //
+            // Set "DatabaseProvider": "SqlServer" to restore the previous behaviour.
+            var provider = builder.Configuration["DatabaseProvider"] ?? "Sqlite";
+
+            if (string.Equals(provider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+            {
                 builder.Services.AddDbContext<EquinoxIdentityContext>(options =>
-                        options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+                        options.UseSqlServer(connectionString));
 
                 return builder;
             }
 
             builder.Services.AddDbContext<EquinoxIdentityContext>(options =>
-                        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                    options.UseSqlite(connectionString));
 
             return builder;
         }
@@ -115,17 +126,40 @@ namespace Equinox.Infra.CrossCutting.Identity.Configuration
         {
             if (builder == null) throw new ArgumentNullException(nameof(builder));
 
-            builder.Services.AddAuthentication()
-                .AddFacebook(o =>
+            // Registered only when credentials are actually configured.
+            //
+            // Upstream registered both providers unconditionally. Their options are validated
+            // lazily, on the first request rather than at startup, so a deployment without
+            // credentials starts cleanly, logs nothing, and then throws
+            // "ArgumentNullException: Value cannot be null. (Parameter 'AppId')" on EVERY
+            // request - including inside the error handler, which then fails too.
+            //
+            // The credentials only ever existed in appsettings.Development.json (as
+            // "SetYourDataHere" placeholders), so any real deployment hit this.
+            var facebookAppId = builder.Configuration["Authentication:Facebook:AppId"];
+            var facebookSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
+            var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+            var googleSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+
+            var authentication = builder.Services.AddAuthentication();
+
+            if (!string.IsNullOrWhiteSpace(facebookAppId) && !string.IsNullOrWhiteSpace(facebookSecret))
+            {
+                authentication.AddFacebook(o =>
                 {
-                    o.AppId = builder.Configuration["Authentication:Facebook:AppId"];
-                    o.AppSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
-                })
-                .AddGoogle(googleOptions =>
-                {
-                    googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-                    googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+                    o.AppId = facebookAppId;
+                    o.AppSecret = facebookSecret;
                 });
+            }
+
+            if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleSecret))
+            {
+                authentication.AddGoogle(googleOptions =>
+                {
+                    googleOptions.ClientId = googleClientId;
+                    googleOptions.ClientSecret = googleSecret;
+                });
+            }
 
             return builder;
         }

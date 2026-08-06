@@ -9,24 +9,34 @@ namespace Equinox.UI.Web.Configurations
         {
             if (builder == null) throw new ArgumentNullException(nameof(builder));
 
-            if (builder.Environment.IsDevelopment())
-            {
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+            // Upstream branched on IsDevelopment(): SQLite in Development, SQL Server
+            // everywhere else. That made Production undeployable here - there is no SQL
+            // Server on free-tier container hosting, and appsettings.json carries no
+            // connection string at all, so a Production container had nothing to connect to.
+            //
+            // The provider is now explicit configuration rather than an inference from the
+            // environment name. Set "DatabaseProvider": "SqlServer" to restore the old
+            // behaviour; the container sets Sqlite.
+            var provider = builder.Configuration["DatabaseProvider"] ?? "Sqlite";
+
+            if (string.Equals(provider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+            {
                 builder.Services.AddDbContext<EquinoxContext>(options =>
-                    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+                    options.UseSqlServer(connectionString));
 
                 builder.Services.AddDbContext<EventStoreSqlContext>(options =>
-                    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+                    options.UseSqlServer(connectionString));
 
                 return builder;
             }
 
             builder.Services.AddDbContext<EquinoxContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseSqlite(connectionString));
 
             builder.Services.AddDbContext<EventStoreSqlContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+                options.UseSqlite(connectionString));
 
             return builder;
         }

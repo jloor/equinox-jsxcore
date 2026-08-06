@@ -352,3 +352,84 @@ kept rather than silently deleting shipped content, but it renders nowhere.
 Worth noting because a checklist that says "convert every view" will happily spend time on
 views the application cannot reach. Nothing in the original spec distinguished live views
 from dead ones.
+
+---
+
+## D13 — Provider is configuration, in both places
+**2026-08-06**
+
+**Ambiguity:** Upstream inferred the database provider from the environment name —
+SQLite under `IsDevelopment()`, SQL Server otherwise — in **two** files:
+
+- `Equinox.UI.Web/Configurations/DatabaseConfig.cs` (presentation layer)
+- `Equinox.Infra.CrossCutting.Identity/Configuration/AspNetIdentityConfig.cs` (**infrastructure**)
+
+`appsettings.json` carries no connection string at all, so any non-Development deployment
+had nothing to connect to. Free-tier container hosting has no SQL Server.
+
+**Chose:** An explicit `"DatabaseProvider"` setting, defaulting to `Sqlite`, in both files.
+`"SqlServer"` restores the old behaviour.
+
+**Why this is a second constraint break:** `AspNetIdentityConfig.cs` is the infrastructure
+layer, which the constraints protect. Same reasoning as D11 — no logic changed, only how a
+provider is selected — but unlike D11 this one was **not optional**. Without it there is no
+deploy at all.
+
+**How it failed, which is the interesting part:** fixing only `DatabaseConfig` left the
+Identity context on SQL Server while the other two ran SQLite. The crash message was:
+
+```
+PendingModelChangesWarning: The model for context 'EquinoxIdentityContext'
+has pending changes. Add a new migration before updating the database.
+```
+
+That points squarely at migrations. The actual cause was a provider mismatch two layers
+away. A loop told to "diagnose and fix before moving on" would very plausibly have spent
+its budget generating EF migrations that were never needed.
+
+---
+
+## D14 — Register external auth only when configured
+**2026-08-06**
+
+**Ambiguity:** With the database finally working, every request returned HTTP 500:
+
+```
+System.ArgumentNullException: Value cannot be null. (Parameter 'AppId')
+   at Microsoft.AspNetCore.Authentication.Facebook.FacebookOptions.Validate()
+```
+
+`AddSocialAuthenticationSupport` registered Facebook and Google unconditionally, reading
+credentials that exist only in `appsettings.Development.json` — as the literal placeholders
+`"SetYourDataHere"`.
+
+**Chose:** Register each provider only when its credentials are non-empty.
+
+**Why not just set dummy env vars:** that would put non-functional "Log in with Facebook"
+buttons on a public demo. Conditional registration is also just correct — an app should not
+hard-fail because an optional feature is unconfigured.
+
+**The failure mode is worth recording.** External auth options are validated **lazily, on
+first use**, not at startup. So the app:
+
+1. started cleanly
+2. logged `Application started` and `Now listening on: http://*:8080`
+3. reported healthy
+4. threw on every single request — including inside the error handler, which then also
+   threw
+
+Startup logs were completely clean. Any health check based on "did the process start" or
+"is the port open" would have reported success. Only an actual HTTP request revealed it,
+which is precisely why the oracle fetches real pages instead of checking liveness.
+
+### Two smaller container traps, same session
+
+**A stale `HTTP 200` from someone else's service.** The first container run bound `-p 8080`,
+which was already taken on this host. The container never started, and `curl localhost:8080`
+cheerfully returned `200` and a page titled *"ReadMe Theme Forge"* — an unrelated app.
+A verification script checking only the status code would have passed against the wrong
+service entirely.
+
+**IPv4-only bind.** `ASPNETCORE_URLS=http://0.0.0.0:8080` binds IPv4 only. `curl localhost`
+resolves to `::1` first, the port forwarder accepts the connection, and nothing ever answers
+— `HTTP 000`, indistinguishable from a hung application. `http://*:8080` binds both.
