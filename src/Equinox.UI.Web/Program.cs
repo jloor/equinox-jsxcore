@@ -1,6 +1,7 @@
 using Equinox.UI.Web.Configurations;
 using Equinox.Infra.CrossCutting.Identity.Configuration;
 using Equinox.UI.Web.ViewServices;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using JsxCore.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,8 +17,12 @@ builder.AddMvcConfiguration()                   // Entire Equinox MVC Config
 // JsxCore writes its own <html>/<head>/<body> shell, so the stylesheets that
 // used to live in _Layout.cshtml are injected here instead.
 builder.Services.AddHttpContextAccessor();
+// ModelState lives on the ActionContext, not the HttpContext, so views need this
+// to reach validation errors.
+builder.Services.AddSingleton<IActionContextAccessor, ActionContextAccessor>();
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<AntiforgeryTokens>();
+builder.Services.AddScoped<ValidationState>();
 
 builder.AddJsxCore(options =>
 {
@@ -26,6 +31,7 @@ builder.AddJsxCore(options =>
     // @Html.AntiForgeryToken(), which JsxCore has no equivalent for.
     options.Globals.Register<CurrentUser>("User");
     options.Globals.Register<AntiforgeryTokens>("Antiforgery");
+    options.Globals.Register<ValidationState>("Validation");
 
     options.Document.DefaultTitle = "Equinox Project";
     options.Document.HeadContent = """

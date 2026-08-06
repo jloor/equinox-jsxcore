@@ -44,13 +44,24 @@ code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
 # ---------------------------------------------------------------- static checks
 
-# D2: Razor and JsxCore coexist. Identity Razor Pages stay (they're required to
-# exercise Customer CRUD, which is [Authorize]). The criterion is scoped to Views/.
-leftover="$(find "$VIEWS" -name '*.cshtml' 2>/dev/null | grep -v '_ViewImports\|_ViewStart' | wc -l)"
+# D2/D12: Razor and JsxCore coexist. The ASP.NET Identity Razor Pages stay - they are
+# required to log in, and logging in is required to exercise Customer CRUD, which is
+# [Authorize]. Those pages pull three Razor files with them, so the allowlist is exact
+# rather than a loosened "ignore Shared/":
+#
+#   _Layout.cshtml               <- Areas/Identity/Pages/_ViewStart.cshtml names it by path
+#   _LoginPartial.cshtml         <- <partial name="_LoginPartial" /> inside _Layout.cshtml
+#   _ValidationScriptsPartial    <- <partial ... /> in Login.cshtml and Register.cshtml
+#   _ViewImports / _ViewStart    <- Razor infrastructure
+#
+# Anything else appearing under Views/ is unconverted work and must fail.
+RAZOR_ALLOWED='_ViewImports.cshtml|_ViewStart.cshtml|_Layout.cshtml|_LoginPartial.cshtml|_ValidationScriptsPartial.cshtml'
+
+leftover="$(find "$VIEWS" -name '*.cshtml' 2>/dev/null | grep -cvE "$RAZOR_ALLOWED")"
 if [[ "$leftover" -eq 0 ]]; then
-    emit no-cshtml-in-views PASS "no .cshtml under Views/ (excl. _ViewImports/_ViewStart)"
+    emit no-cshtml-in-views PASS "only Identity-required Razor files remain under Views/"
 else
-    emit no-cshtml-in-views FAIL "$leftover .cshtml still in Views/: $(find "$VIEWS" -name '*.cshtml' | grep -v '_ViewImports\|_ViewStart' | head -5 | tr '\n' ' ')"
+    emit no-cshtml-in-views FAIL "$leftover unconverted .cshtml: $(find "$VIEWS" -name '*.cshtml' | grep -vE "$RAZOR_ALLOWED" | head -5 | tr '\n' ' ')"
 fi
 
 # D8: every converted view must declare "use server" as its FIRST statement.
@@ -79,8 +90,8 @@ else
     emit tsx-use-server FAIL "missing \"use server\":$missing"
 fi
 
-# Every Razor view should have a .tsx counterpart by the end.
-for v in $(find "$VIEWS" -name '*.cshtml' 2>/dev/null | grep -v '_ViewImports\|_ViewStart'); do
+# Every Razor view that is NOT deliberately retained should have a .tsx counterpart.
+for v in $(find "$VIEWS" -name '*.cshtml' 2>/dev/null | grep -vE "$RAZOR_ALLOWED"); do
     [[ -f "${v%.cshtml}.tsx" ]] || emit tsx-parity FAIL "no .tsx for ${v#$VIEWS/}"
 done
 

@@ -10,7 +10,7 @@ One doesn't, and one of the three works in a way that changes the migration's sh
 | 1 | Server-side rendering | ✅ works (`"use server"`) |
 | 2 | Shared layouts | ⚠️ works, but **not** the way Razor does |
 | 3 | Form POST + antiforgery | ✅ works — **via an undocumented route** |
-| 4 | ViewComponents | ❌ **broken** |
+| 4 | ViewComponents | ⚠️ **work** — I misdiagnosed this; see the correction below |
 
 ---
 
@@ -143,35 +143,64 @@ export default function Default({ model }: { model: { Count: number } }) {
 <aside class="summary">Summary:  customers</aside>
 ```
 
-**The model is empty.** Hardcoding `Count = 42` changes nothing — it still renders blank,
-so the value isn't falsy-rendering, it's `undefined`. The ViewComponent's model never
-reaches the TSX view. Normal controller views bind fine in the same app, so this is
-specific to the ViewComponent path.
+The model looked empty. Hardcoding `Count = 42` changed nothing, so I concluded the value
+wasn't falsy-rendering but `undefined`, and wrote this up as "ViewComponents are broken in
+1.0.0."
 
-Second problem: the response is a **full HTML document** — `<!DOCTYPE html>`, `<head>`,
-the whole import map, 1,599 bytes of it. A ViewComponent is supposed to emit a *fragment*
-for embedding in a page. Two ViewComponents on one page would mean two nested documents.
+## Correction: that was my bug, not JsxCore's
 
-**Verdict: unusable in 1.0.0.** Not "awkward" — the model silently vanishes.
+Later, while converting the Customer views, JsxCore's generated type declarations showed
+why:
 
-### The workaround, and why it's interesting
-
-The same mechanism that solved antiforgery solves this. Register the data source as a
-global and call it directly from the view:
-
-```csharp
-builder.AddJsxCore(o => o.Globals.Register<SummaryService>("Summary"));
+```ts
+declare namespace Equinox.UI.Web.Models {
+    interface ErrorViewModel {
+        errorCode: number;   // <- camelCase
+        title: string;
+        message: string;
+    }
+}
 ```
 
-```tsx
-import { Summary } from "dotnet:globals";
-<aside>Summary: {Summary.getCount()} customers</aside>
+> *"These describe the model as it arrives in JavaScript, so they follow the application's
+> `JsonSerializerOptions` rather than the .NET shape directly."*
+
+**The model is serialised to camelCase.** My view read `model.Count`; the property is
+`model.count`. Changing one character:
+
+```html
+<aside class="summary">Summary: 42 customers</aside>
 ```
 
-This matters for Equinox specifically because the constraints forbid modifying
-`Controllers/`. The obvious fix — fold the summary data into the parent ViewModel —
-would require a controller change. Globals route around it entirely: the data reaches
-the view without the controller knowing.
+ViewComponents work. I reported a library as broken when I had written PascalCase against
+a camelCase payload — and the "hardcode 42 to rule out falsy rendering" test that felt like
+careful debugging only confirmed my own mistake more precisely.
+
+Worth being blunt about, because the failure mode is the point: `undefined` renders as
+nothing in JSX, so a casing mismatch looks *exactly* like a framework bug. Nothing errors,
+nothing warns, the page returns 200. The two explanations are indistinguishable from the
+output alone, and I picked the one that blamed the dependency.
+
+### What remains true
+
+The response really is a **full HTML document** — `<!DOCTYPE html>`, `<head>`, the entire
+import map, 1,599 bytes. For a ViewComponent returned directly from a controller action
+that is harmless. For one embedded in a page it is not, and Equinox embeds it:
+
+```html
+<vc:summary />   <!-- inside Create.cshtml, Edit.cshtml, Delete.cshtml -->
+```
+
+So for this codebase the ViewComponent still can't be used from TSX — but for two entirely
+different reasons than "broken":
+
+1. `<vc:summary />` is a **Razor tag helper**. There is no TSX equivalent; a `.tsx` view
+   cannot invoke a ViewComponent at all.
+2. Equinox's `Summary` takes **no model**. It reads `ViewData.ModelState.ErrorCount` and
+   `ViewBag.Sucesso` — request state a TSX view has no access to.
+
+The fix is still to re-express it through globals (see D7), but as a validation-summary
+*component* reading a `ViewFeedback` global, not as a workaround for a broken feature.
 
 ---
 

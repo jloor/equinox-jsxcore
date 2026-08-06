@@ -148,11 +148,23 @@ reaches the view. See `artifacts/02-spike-four-unknowns.md`. Decision D6 paid fo
 ---
 
 ## D7 — Re-express the ViewComponent as a .NET global
-**2026-08-05**
+**2026-08-05** · *reasoning corrected 2026-08-06*
 
-**Ambiguity:** Equinox has `Views/Shared/Components/Summary`. JsxCore resolves
-ViewComponent views to `.tsx` but never passes the model, and wraps output in a full
-HTML document rather than a fragment. So it cannot be converted as-is.
+> **Correction.** This decision was originally justified by "JsxCore never passes the
+> ViewComponent's model." That was wrong. Models are serialised to **camelCase**, and the
+> spike read `model.Count` instead of `model.count`. ViewComponents work.
+>
+> The decision stands, for different reasons: `<vc:summary />` is a Razor tag helper with
+> no TSX equivalent, and Equinox's `Summary` takes no model at all — it reads
+> `ViewData.ModelState` and `ViewBag.Sucesso`, which a TSX view cannot reach. The
+> full-document wrapping also still makes it unusable *embedded* in a page, which is
+> exactly how Equinox uses it.
+>
+> See the correction in `chapters/02-spike-four-unknowns.md`.
+
+**Ambiguity:** Equinox has `Views/Shared/Components/Summary`, embedded as `<vc:summary />`
+inside Create, Edit and Delete. TSX views cannot invoke ViewComponents, and this one needs
+`ModelState` and `ViewBag` rather than a model.
 
 **Options:**
 1. Fold the summary data into the parent ViewModel — **requires modifying `Controllers/`,
@@ -297,3 +309,46 @@ so the spec's original criterion is now asserted as written instead of as a conc
 and any new warning fails the build rather than hiding in the noise.
 
 **Traded:** Strict constraint compliance, deliberately and on the record.
+
+---
+
+## D12 — Three Razor files stay, by name
+**2026-08-06**
+
+**Ambiguity:** D2 said "Identity Razor Pages stay." But those pages drag Razor
+infrastructure out of `Views/Shared/` with them, and the oracle's
+`no-cshtml-in-views` check had to decide what counts as unconverted work.
+
+**Chose:** An exact allowlist rather than ignoring `Shared/`:
+
+| File | Required by |
+|---|---|
+| `_Layout.cshtml` | `Areas/Identity/Pages/_ViewStart.cshtml` names it by path: `Layout = "/Views/Shared/_Layout.cshtml"` |
+| `_LoginPartial.cshtml` | `<partial name="_LoginPartial" />` inside `_Layout.cshtml` |
+| `_ValidationScriptsPartial.cshtml` | `<partial ... />` in Login.cshtml and Register.cshtml |
+| `_ViewImports` / `_ViewStart` | Razor infrastructure |
+
+**Why exact:** ignoring `Shared/` wholesale would have let genuinely unconverted views
+hide there. The allowlist is five names; anything else under `Views/` fails the build.
+
+**Consequence:** the site now has **two parallel layouts** — `Shared/_Layout.cshtml` for
+Identity's Razor pages, `Shared/Layout.tsx` for everything else. They render the same
+chrome, and they will drift. That is the real cost of coexistence and it should be stated
+plainly rather than discovered later.
+
+### Deleted as genuinely dead
+
+- `Shared/Components/Summary/Default.cshtml` — its only callers were the Customer views,
+  now TSX. Orphaned by the migration.
+- `Shared/_CookieConsentPartial.cshtml` — referenced by nothing. Already dead before this
+  project started.
+
+### Converted but unreachable
+
+`Home/Privacy.cshtml` → `Privacy.tsx`. **`HomeController` has no `Privacy` action** — the
+view was dead code in upstream Equinox and no route reaches it. Converted for parity and
+kept rather than silently deleting shipped content, but it renders nowhere.
+
+Worth noting because a checklist that says "convert every view" will happily spend time on
+views the application cannot reach. Nothing in the original spec distinguished live views
+from dead ones.
