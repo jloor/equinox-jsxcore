@@ -174,7 +174,11 @@ jobs:
           for i in $(seq 1 40); do
             served="$(curl -sS --max-time 20 "$URL/version" 2>/dev/null | tr -d '[:space:]' || true)"
             if [[ "$served" != "${{ github.sha }}" ]]; then
-              echo "  [$i] serving '${served:-<no response>}', want '${{ github.sha }}'"
+              # Truncated: during a rollout the platform serves a full HTML placeholder
+              # page here, and echoing it per-poll buries the log in markup.
+              short="${served:0:48}"
+              [[ ${#served} -gt 48 ]] && short="${short}..."
+              echo "  [$i] not the new build yet (got: ${short:-<no response>})"
               sleep 15
               continue
             fi
