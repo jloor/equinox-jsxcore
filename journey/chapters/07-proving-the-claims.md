@@ -185,8 +185,18 @@ on the server, `highlight.js` proves they reach the browser as ES modules with n
 "highlight.js": "/_jsx/v.../npm/0/highlight.js/es/index.js"
 ```
 
-**And `dotnet publish` does not copy `node_modules`**, despite the docs saying it will.
-Every page importing a package returns 500 in the container while working perfectly in
+**And the first `dotnet publish` on a clean checkout omits `node_modules`.** The docs are
+explicit that "everything in your `dependencies` is copied into the publish output
+automatically", and on a second publish it is. But on a *clean* checkout — which is exactly
+what CI and a Docker build are — the packages are restored during that publish and end up
+absent from its output:
+
+| | `node_modules` in publish output |
+|---|---|
+| First publish, clean checkout | absent |
+| Second publish | present, `dependencies` only |
+
+Every page importing a package then returns 500 in the container while working perfectly in
 development. JsxCore's own startup warning is what found it, and it is a genuinely good
 error message:
 
