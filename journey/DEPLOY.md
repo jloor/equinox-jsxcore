@@ -148,6 +148,73 @@ gh workflow run ci.yml --ref <previous-good-sha>
 or set the image tag directly in the Bunny dashboard. Both are safe to repeat — the
 rollout is idempotent.
 
+## Custom domain — and why it was necessary, not cosmetic
+
+Live at **https://equinox-jsxcore.jonathanloor.com**
+
+The Bunny-assigned hostname `mc-5z62s7tghu.bunny.run` was **unreachable from the developer's
+own network**:
+
+```
+$ curl https://mc-5z62s7tghu.bunny.run/
+Connection refused
+
+$ curl http://mc-5z62s7tghu.bunny.run/
+HTTP 403   <title>Optimum Safe Browsing</title>
+
+$ dig +short mc-5z62s7tghu.bunny.run
+167.206.37.145      -> nomproxy-sia.vip.orbgny.alticeusa.net
+```
+
+The ISP (Optimum/Altice) intercepts the `.bunny.run` domain and answers with a
+safe-browsing block page. Nothing was wrong with the deployment — CI reached it fine from
+GitHub's runners — but it meant the person who built it could not open their own demo, and
+any visitor on the same ISP would have seen a block page instead of the app.
+
+**This is a good argument for verifying from more than one vantage point.** Local checks
+said the site was dead; CI said it was live. CI was right.
+
+Two hostnames were already available on the pull zone, and only one was blocked:
+
+| Hostname | From this network |
+|---|---|
+| `mc-5z62s7tghu.bunny.run` | ❌ 403 safe-browsing block |
+| `mc-5z62s7tghu.b-cdn.net` | ✅ 200 |
+| `equinox-jsxcore.jonathanloor.com` | ✅ 200, valid TLS, ~72 ms |
+
+### How it was set up
+
+`jonathanloor.com` is on Bunny DNS, so everything went through the API.
+
+```bash
+# 1. attach the hostname to the app's pull zone (id from the app's endpoint)
+curl -X POST -H "AccessKey: $BUNNY_API_KEY" -H "Content-Type: application/json" \
+  -d '{"Hostname":"equinox-jsxcore.jonathanloor.com"}' \
+  https://api.bunny.net/pullzone/6283227/addHostname          # -> 204
+
+# 2. CNAME to the b-cdn.net hostname, NOT bunny.run
+curl -X PUT -H "AccessKey: $BUNNY_API_KEY" -H "Content-Type: application/json" \
+  -d '{"Type":2,"Name":"equinox-jsxcore","Value":"mc-5z62s7tghu.b-cdn.net","Ttl":300}' \
+  https://api.bunny.net/dnszone/339995/records                # -> 201
+
+# 3. free Let's Encrypt certificate
+curl -H "AccessKey: $BUNNY_API_KEY" \
+  "https://api.bunny.net/pullzone/loadFreeCertificate?hostname=equinox-jsxcore.jonathanloor.com"
+```
+
+`Type: 2` is CNAME in Bunny DNS (`0` = A, `3` = TXT, `4` = MX).
+
+The CNAME points at **`b-cdn.net`**, not `bunny.run`, because that hostname is not on the
+ISP's block list.
+
+One practical note: querying the record *before* creating it poisoned the public resolvers
+with a negative cache, so propagation appeared stuck for several minutes while the
+authoritative servers (`kiki`/`coco.bunny.net`) already had it. Check
+`dig @kiki.bunny.net <name>` before assuming something is wrong.
+
+`BUNNY_APP_URL` points at the custom domain, so CI's post-deploy check verifies the URL
+visitors actually use rather than one that happens to work only from a datacentre.
+
 ## Cold start
 
 There is none to design around: the app runs continuously with 1 replica pinned to one
